@@ -1,0 +1,175 @@
+<template>
+    <div class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">Lệnh sản xuất {{ order.code }}</h1>
+                <p class="text-sm text-slate-500">
+                    {{ order.product_name }} · SL kế hoạch {{ number(order.qty, 2) }} · Kho: {{ order.warehouse_name ?? '—' }}
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <StatusBadge :status="order.status" />
+                <button
+                    v-if="order.status === 'draft' && can('manufacturing.mo.create')"
+                    class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    @click="postAction('confirm')"
+                >
+                    Xác nhận
+                </button>
+                <button
+                    v-if="order.status === 'confirmed' && can('manufacturing.mo.start')"
+                    class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                    @click="postAction('start')"
+                >
+                    Bắt đầu sản xuất
+                </button>
+                <button
+                    v-if="order.status === 'in_progress' && can('manufacturing.mo.complete')"
+                    class="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
+                    @click="showComplete = true"
+                >
+                    Hoàn thành
+                </button>
+                <button
+                    v-if="['draft', 'confirmed'].includes(order.status) && can('manufacturing.mo.create')"
+                    class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                    @click="cancelOrder"
+                >
+                    Hủy lệnh
+                </button>
+            </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-3">
+            <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Số lượng kế hoạch</p>
+                <p class="mt-1 text-lg font-bold text-slate-800">{{ number(order.qty, 2) }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Đã sản xuất</p>
+                <p class="mt-1 text-lg font-bold text-green-700">{{ number(order.produced_qty, 2) }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-slate-500">Định mức / Quy trình</p>
+                <p class="mt-1 text-sm font-medium text-slate-800">
+                    BOM: {{ order.bom?.code ?? '—' }} · Routing: {{ order.routing?.name ?? '—' }}
+                </p>
+            </div>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 class="mb-3 text-sm font-semibold text-slate-700">Nhu cầu nguyên liệu theo BOM</h2>
+            <DataTable
+                :columns="[
+                    { key: 'name', label: 'Nguyên liệu' },
+                    { key: 'qty', label: 'Cần dùng' },
+                ]"
+                :items="materials"
+                empty-text="Lệnh này không có BOM nên không cần nguyên liệu."
+            >
+                <template #cell-qty="{ row }">{{ number(row.qty, 2) }}</template>
+            </DataTable>
+        </div>
+
+        <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 class="mb-3 text-sm font-semibold text-slate-700">Công đoạn</h2>
+            <DataTable
+                :columns="[
+                    { key: 'code', label: 'Mã' },
+                    { key: 'operation_name', label: 'Công đoạn' },
+                    { key: 'work_center', label: 'Trung tâm' },
+                    { key: 'planned_minutes', label: 'Phút chuẩn' },
+                    { key: 'status', label: 'Trạng thái' },
+                ]"
+                :items="order.work_orders ?? []"
+                empty-text="Chưa có công đoạn — công đoạn được tạo khi bắt đầu sản xuất (theo routing)."
+            >
+                <template #cell-work_center="{ row }">{{ row.work_center?.name ?? '—' }}</template>
+                <template #cell-planned_minutes="{ row }">{{ number(row.planned_minutes, 0) }}</template>
+                <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
+            </DataTable>
+        </div>
+
+        <div v-if="order.production_logs?.length" class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 class="mb-3 text-sm font-semibold text-slate-700">Nhật ký sản xuất</h2>
+            <DataTable
+                :columns="[
+                    { key: 'logged_at', label: 'Thời gian' },
+                    { key: 'qty_produced', label: 'Thành phẩm' },
+                    { key: 'qty_scrap', label: 'Phế phẩm' },
+                ]"
+                :items="order.production_logs"
+            >
+                <template #cell-logged_at="{ row }">{{ datetime(row.logged_at) }}</template>
+                <template #cell-qty_produced="{ row }">{{ number(row.qty_produced, 2) }}</template>
+                <template #cell-qty_scrap="{ row }">{{ number(row.qty_scrap, 2) }}</template>
+            </DataTable>
+        </div>
+
+        <!-- Modal hoàn thành -->
+        <Modal :show="showComplete" title="Hoàn thành sản xuất" @close="showComplete = false">
+            <form class="space-y-3" @submit.prevent="completeOrder">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Số lượng thành phẩm *</label>
+                    <input v-model.number="completeForm.qty_produced" type="number" min="0.0001" step="0.01" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Số lượng phế phẩm</label>
+                    <input v-model.number="completeForm.qty_scrap" type="number" min="0" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                </div>
+                <p class="text-xs text-slate-500">
+                    Hệ thống sẽ xuất kho nguyên liệu theo BOM, nhập kho thành phẩm với giá vốn
+                    = tổng chi phí nguyên liệu / số lượng thành phẩm.
+                </p>
+                <div class="flex gap-2 pt-1">
+                    <button type="submit" :disabled="completeForm.processing" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">
+                        Hoàn thành
+                    </button>
+                    <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50" @click="showComplete = false">
+                        Hủy
+                    </button>
+                </div>
+            </form>
+        </Modal>
+    </div>
+</template>
+
+<script setup>
+import { router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import DataTable from '../../../Components/DataTable.vue';
+import Modal from '../../../Components/Modal.vue';
+import StatusBadge from '../../../Components/StatusBadge.vue';
+import { useFormat } from '../../../composables/useFormat';
+import { usePermission } from '../../../composables/usePermission';
+
+const props = defineProps({
+    order: { type: Object, required: true },
+    materials: { type: Array, default: () => [] },
+});
+
+const { number, datetime } = useFormat();
+const { can } = usePermission();
+const showComplete = ref(false);
+
+const completeForm = useForm({
+    qty_produced: props.order.qty,
+    qty_scrap: 0,
+});
+
+function postAction(action) {
+    router.post(route(`manufacturing.orders.${action}`, props.order.id), {}, { preserveScroll: true });
+}
+
+function cancelOrder() {
+    if (confirm('Hủy lệnh sản xuất này?')) {
+        postAction('cancel');
+    }
+}
+
+function completeOrder() {
+    completeForm.post(route('manufacturing.orders.complete', props.order.id), {
+        onSuccess: () => { showComplete.value = false; },
+    });
+}
+</script>

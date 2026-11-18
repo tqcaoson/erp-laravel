@@ -1,0 +1,179 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Core\Models\Permission;
+use App\Core\Models\Role;
+use Illuminate\Database\Seeder;
+
+/**
+ * Vai trò + quyền chức năng (dạng "module.action").
+ * Danh sách quyền này là hợp đồng chung: controller dùng middleware
+ * 'permission:...' và Policy dùng đúng các tên dưới đây.
+ */
+class RolePermissionSeeder extends Seeder
+{
+    /** @var array<string, array<string, string>> module => [permission => nhãn] */
+    public const PERMISSIONS = [
+        'accounting' => [
+            'accounting.account.view' => 'Xem hệ thống tài khoản',
+            'accounting.account.manage' => 'Quản lý hệ thống tài khoản',
+            'accounting.entry.view' => 'Xem bút toán',
+            'accounting.entry.create' => 'Tạo bút toán',
+            'accounting.entry.post' => 'Ghi sổ bút toán',
+            'accounting.entry.reverse' => 'Đảo bút toán',
+            'accounting.invoice.view' => 'Xem hóa đơn',
+            'accounting.invoice.create' => 'Lập hóa đơn',
+            'accounting.invoice.post' => 'Ghi sổ hóa đơn',
+            'accounting.payment.view' => 'Xem thu chi',
+            'accounting.payment.create' => 'Tạo phiếu thu/chi',
+            'accounting.period.manage' => 'Mở/khóa kỳ kế toán',
+            'accounting.bank.view' => 'Xem tài khoản ngân hàng',
+            'accounting.bank.manage' => 'Quản lý tài khoản ngân hàng',
+        ],
+        'procurement' => [
+            'procurement.supplier.view' => 'Xem nhà cung cấp',
+            'procurement.supplier.manage' => 'Quản lý nhà cung cấp',
+            'procurement.pr.view' => 'Xem yêu cầu mua hàng',
+            'procurement.pr.create' => 'Tạo yêu cầu mua hàng',
+            'procurement.pr.approve' => 'Duyệt yêu cầu mua hàng',
+            'procurement.po.view' => 'Xem đơn mua hàng',
+            'procurement.po.create' => 'Tạo đơn mua hàng',
+            'procurement.po.approve' => 'Duyệt đơn mua hàng',
+            'procurement.gr.view' => 'Xem phiếu nhận hàng',
+            'procurement.gr.create' => 'Tạo phiếu nhận hàng',
+            'procurement.rfq.view' => 'Xem báo giá nhà cung cấp',
+            'procurement.rfq.manage' => 'Quản lý báo giá nhà cung cấp',
+        ],
+        'inventory' => [
+            'inventory.product.view' => 'Xem sản phẩm',
+            'inventory.product.manage' => 'Quản lý sản phẩm',
+            'inventory.warehouse.view' => 'Xem kho',
+            'inventory.warehouse.manage' => 'Quản lý kho',
+            'inventory.stock.view' => 'Xem tồn kho',
+            'inventory.stock.move' => 'Nhập/xuất/chuyển kho',
+            'inventory.stock.count' => 'Kiểm kê kho',
+        ],
+        'sales' => [
+            'sales.customer.view' => 'Xem khách hàng',
+            'sales.customer.manage' => 'Quản lý khách hàng',
+            'sales.lead.view' => 'Xem đầu mối',
+            'sales.lead.manage' => 'Quản lý đầu mối',
+            'sales.opportunity.view' => 'Xem cơ hội bán hàng',
+            'sales.opportunity.manage' => 'Quản lý cơ hội bán hàng',
+            'sales.quotation.view' => 'Xem báo giá',
+            'sales.quotation.create' => 'Tạo báo giá',
+            'sales.order.view' => 'Xem đơn bán hàng',
+            'sales.order.create' => 'Tạo đơn bán hàng',
+            'sales.order.confirm' => 'Xác nhận đơn bán hàng',
+            'sales.order.approve' => 'Duyệt đơn bán hàng vượt hạn mức',
+            'sales.delivery.view' => 'Xem phiếu giao hàng',
+            'sales.delivery.validate' => 'Xác nhận giao hàng',
+            'sales.price.view' => 'Xem bảng giá',
+            'sales.price.manage' => 'Quản lý bảng giá',
+        ],
+        'manufacturing' => [
+            'manufacturing.bom.view' => 'Xem định mức (BOM)',
+            'manufacturing.bom.manage' => 'Quản lý định mức (BOM)',
+            'manufacturing.mo.view' => 'Xem lệnh sản xuất',
+            'manufacturing.mo.create' => 'Tạo lệnh sản xuất',
+            'manufacturing.mo.start' => 'Bắt đầu sản xuất',
+            'manufacturing.mo.complete' => 'Hoàn thành sản xuất',
+            'manufacturing.workcenter.view' => 'Xem trung tâm sản xuất',
+            'manufacturing.workcenter.manage' => 'Quản lý trung tâm sản xuất',
+        ],
+        'hr' => [
+            'hr.employee.view' => 'Xem nhân viên',
+            'hr.employee.manage' => 'Quản lý nhân viên',
+            'hr.attendance.view' => 'Xem chấm công',
+            'hr.attendance.manage' => 'Quản lý chấm công',
+            'hr.leave.view' => 'Xem nghỉ phép',
+            'hr.leave.request' => 'Đăng ký nghỉ phép',
+            'hr.leave.approve' => 'Duyệt nghỉ phép',
+            'hr.payroll.view' => 'Xem bảng lương',
+            'hr.payroll.run' => 'Chạy bảng lương',
+            'hr.payroll.approve' => 'Khóa bảng lương',
+        ],
+        'reporting' => [
+            'reporting.dashboard.view' => 'Xem dashboard',
+            'reporting.report.view' => 'Xem báo cáo',
+            'reporting.report.export' => 'Xuất báo cáo',
+        ],
+        'core' => [
+            'core.user.view' => 'Xem người dùng',
+            'core.user.manage' => 'Quản lý người dùng',
+            'core.role.manage' => 'Quản lý vai trò/quyền',
+            'core.audit.view' => 'Xem nhật ký kiểm tra',
+        ],
+    ];
+
+    /** @var array<string, list<string>> role => các module hoặc quyền được gán ('*' = tất cả). */
+    public const ROLE_PERMISSIONS = [
+        'admin' => ['*'],
+        'giam_doc' => ['*.view', 'sales.order.approve', 'procurement.po.approve', 'procurement.pr.approve', 'hr.leave.approve', 'hr.payroll.approve', 'reporting.*'],
+        'ke_toan' => ['accounting.*', 'reporting.*', 'sales.order.view', 'sales.customer.view', 'procurement.po.view', 'procurement.supplier.view'],
+        'kho' => ['inventory.*', 'procurement.po.view', 'procurement.gr.view', 'procurement.gr.create', 'sales.delivery.view', 'sales.delivery.validate', 'reporting.dashboard.view'],
+        'ban_hang' => ['sales.*', 'inventory.product.view', 'inventory.stock.view', 'reporting.*'],
+        'nhan_su' => ['hr.*', 'reporting.dashboard.view', 'reporting.report.view'],
+    ];
+
+    public const ROLES = [
+        'admin' => 'Quản trị hệ thống',
+        'giam_doc' => 'Giám đốc',
+        'ke_toan' => 'Kế toán',
+        'kho' => 'Thủ kho',
+        'ban_hang' => 'Nhân viên bán hàng',
+        'nhan_su' => 'Nhân sự',
+    ];
+
+    public function run(): void
+    {
+        $allPermissions = [];
+
+        foreach (self::PERMISSIONS as $module => $permissions) {
+            foreach ($permissions as $name => $label) {
+                $allPermissions[$name] = Permission::firstOrCreate(
+                    ['name' => $name],
+                    ['label' => $label, 'module' => $module],
+                );
+            }
+        }
+
+        foreach (self::ROLES as $name => $label) {
+            $role = Role::firstOrCreate(['name' => $name], ['label' => $label]);
+
+            $granted = [];
+            foreach (self::ROLE_PERMISSIONS[$name] as $pattern) {
+                if ($pattern === '*') {
+                    $granted = array_keys($allPermissions);
+                    break;
+                }
+
+                if (str_ends_with($pattern, '.*')) {
+                    $prefix = substr($pattern, 0, -1);
+                    foreach (array_keys($allPermissions) as $permissionName) {
+                        if (str_starts_with($permissionName, $prefix)) {
+                            $granted[] = $permissionName;
+                        }
+                    }
+                } elseif (str_ends_with($pattern, '.view')) {
+                    // '*.view': tất cả quyền xem của mọi module.
+                    foreach (array_keys($allPermissions) as $permissionName) {
+                        if (str_ends_with($permissionName, '.view')) {
+                            $granted[] = $permissionName;
+                        }
+                    }
+                } else {
+                    $granted[] = $pattern;
+                }
+            }
+
+            $ids = collect(array_unique($granted))
+                ->map(fn ($permissionName) => $allPermissions[$permissionName]->id ?? null)
+                ->filter()
+                ->all();
+
+            $role->permissions()->syncWithoutDetaching($ids);
+        }
+    }
+}

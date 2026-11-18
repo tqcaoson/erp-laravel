@@ -1,0 +1,70 @@
+<template>
+    <div class="space-y-4">
+        <h1 class="text-xl font-bold text-slate-800">Công đoạn sản xuất</h1>
+
+        <form class="flex flex-wrap gap-2" @submit.prevent="applyFilters">
+            <select v-model="form.status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                <option value="">Tất cả trạng thái</option>
+                <option v-for="(label, value) in statuses" :key="value" :value="value">{{ label }}</option>
+            </select>
+            <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+                Lọc
+            </button>
+        </form>
+
+        <DataTable :columns="columns" :items="workOrders" empty-text="Chưa có công đoạn nào.">
+            <template #cell-manufacturing_order="{ row }">
+                <Link :href="route('manufacturing.orders.show', row.manufacturing_order_id)" class="font-medium text-blue-600 hover:underline">
+                    {{ row.manufacturing_order?.code ?? '—' }}
+                </Link>
+            </template>
+            <template #cell-work_center="{ row }">{{ row.work_center?.name ?? '—' }}</template>
+            <template #cell-planned_minutes="{ row }">{{ number(row.planned_minutes, 0) }}</template>
+            <template #cell-actual_minutes="{ row }">{{ row.actual_minutes === null ? '—' : number(row.actual_minutes, 0) }}</template>
+            <template #cell-status="{ row }">
+                <select
+                    :value="row.status"
+                    class="rounded border border-slate-300 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
+                    @change="changeStatus(row, $event.target.value)"
+                >
+                    <option v-for="(label, value) in statuses" :key="value" :value="value">{{ label }}</option>
+                </select>
+            </template>
+        </DataTable>
+    </div>
+</template>
+
+<script setup>
+import { Link, router } from '@inertiajs/vue3';
+import { reactive } from 'vue';
+import DataTable from '../../../Components/DataTable.vue';
+import { useFormat } from '../../../composables/useFormat';
+
+const props = defineProps({
+    workOrders: { type: Object, required: true },
+    statuses: { type: Object, required: true },
+    filters: { type: Object, default: () => ({}) },
+});
+
+const { number } = useFormat();
+
+const form = reactive({ status: props.filters.filter?.status ?? '' });
+
+const columns = [
+    { key: 'code', label: 'Mã', sortable: true },
+    { key: 'manufacturing_order', label: 'Lệnh sản xuất' },
+    { key: 'operation_name', label: 'Công đoạn' },
+    { key: 'work_center', label: 'Trung tâm' },
+    { key: 'planned_minutes', label: 'Phút chuẩn' },
+    { key: 'actual_minutes', label: 'Phút thực tế' },
+    { key: 'status', label: 'Trạng thái' },
+];
+
+function applyFilters() {
+    router.get(route('manufacturing.work-orders.index'), { 'filter[status]': form.status || undefined }, { preserveState: true });
+}
+
+function changeStatus(workOrder, status) {
+    router.patch(route('manufacturing.work-orders.status', workOrder.id), { status }, { preserveScroll: true });
+}
+</script>
