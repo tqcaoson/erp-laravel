@@ -1,6 +1,9 @@
 <template>
     <div class="mx-auto max-w-3xl space-y-4">
         <h1 class="text-xl font-semibold text-slate-800">Tạo đơn mua hàng</h1>
+        <p v-if="fromRfq" class="rounded-lg bg-blue-50 px-4 py-2 text-sm text-blue-800 ring-1 ring-blue-200">
+            Đang tạo đơn mua từ yêu cầu báo giá {{ fromRfq.code }} đã chấp nhận — nhà cung cấp và đơn giá đã được điền sẵn từ báo giá.
+        </p>
         <form @submit.prevent="submit" class="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -31,7 +34,9 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Thuế (tổng)</label>
-                    <input v-model.number="form.tax_amount" type="number" min="0" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.tax_amount" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p v-if="form.errors.tax_amount" class="mt-1 text-sm text-red-600">{{ form.errors.tax_amount }}</p>
+                    <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 </div>
             </div>
             <div class="overflow-hidden rounded-lg border border-slate-200">
@@ -54,10 +59,12 @@
                                 </select>
                             </td>
                             <td class="px-3 py-2">
-                                <input v-model.number="line.qty" type="number" min="0" step="0.0001" class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <NumberInput v-model="line.qty" :decimals="4" :min="0.0001" placeholder="VD: 10" class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <p v-if="form.errors[`lines.${i}.qty`]" class="mt-1 text-left text-xs text-red-600">{{ form.errors[`lines.${i}.qty`] }}</p>
                             </td>
                             <td class="px-3 py-2">
-                                <input v-model.number="line.unit_price" type="number" min="0" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <NumberInput v-model="line.unit_price" :min="0" placeholder="VD: 20000" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <p v-if="form.errors[`lines.${i}.unit_price`]" class="mt-1 text-left text-xs text-red-600">{{ form.errors[`lines.${i}.unit_price`] }}</p>
                             </td>
                             <td class="px-3 py-2 text-right text-sm">{{ money((Number(line.qty) || 0) * (Number(line.unit_price) || 0)) }}</td>
                             <td class="px-3 py-2 text-right">
@@ -68,6 +75,7 @@
                 </table>
             </div>
             <p v-if="form.errors.lines" class="text-sm text-red-600">{{ form.errors.lines }}</p>
+            <p class="text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn (VD: 20.000 = 20000). Số lượng tối thiểu 0.0001.</p>
             <div class="flex items-center justify-between">
                 <button type="button" @click="addLine" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">+ Thêm dòng</button>
                 <p class="text-sm font-semibold text-slate-800">Tổng cộng: {{ money(totalAmount) }}</p>
@@ -87,6 +95,7 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { useFormat } from '../../../composables/useFormat.js';
 
 const props = defineProps({
@@ -94,16 +103,22 @@ const props = defineProps({
     products: { type: Array, required: true },
     purchaseRequests: { type: Array, required: true },
     fromRequest: { type: Object, default: null },
+    fromRfq: { type: Object, default: null },
 });
 
 const { money } = useFormat();
 
-const initialLines = props.fromRequest
-    ? props.fromRequest.lines.map((l) => ({ product_id: l.product_id, qty: Number(l.qty), unit_price: Number(l.unit_price) || 0 }))
+// Điền sẵn dòng từ yêu cầu mua (PR) hoặc từ báo giá đã chấp nhận (RFQ) —
+// cả hai prop có cùng dạng lines (product_id/qty/unit_price), RFQ dùng
+// quoted_price làm unit_price. PR được ưu tiên nếu cả hai cùng có.
+const prefillSource = props.fromRequest ?? props.fromRfq;
+
+const initialLines = prefillSource
+    ? prefillSource.lines.map((l) => ({ product_id: l.product_id, qty: Number(l.qty), unit_price: Number(l.unit_price) || 0 }))
     : [{ product_id: '', qty: null, unit_price: 0 }];
 
 const form = useForm({
-    supplier_id: '',
+    supplier_id: props.fromRfq?.supplier_id ?? '',
     purchase_request_id: props.fromRequest?.id ?? null,
     order_date: new Date().toISOString().slice(0, 10),
     expected_date: '',

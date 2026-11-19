@@ -23,8 +23,9 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Số tiền *</label>
-                    <input v-model.number="form.amount" type="number" min="0.01" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.amount" :min="0.01" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                     <p v-if="form.errors.amount" class="mt-1 text-sm text-red-600">{{ form.errors.amount }}</p>
+<p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Ngày thanh toán *</label>
@@ -55,6 +56,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { useFormat } from '../../../composables/useFormat';
 
 defineProps({

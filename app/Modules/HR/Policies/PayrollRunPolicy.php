@@ -30,6 +30,16 @@ class PayrollRunPolicy
 
     public function lock(User $user, PayrollRun $payrollRun): bool
     {
+        return $user->hasPermission('hr.payroll.lock');
+    }
+
+    public function approve(User $user, PayrollRun $payrollRun): bool
+    {
         return $user->hasPermission('hr.payroll.approve');
+    }
+
+    public function pay(User $user, PayrollRun $payrollRun): bool
+    {
+        return $user->hasPermission('hr.payroll.pay');
     }
 }

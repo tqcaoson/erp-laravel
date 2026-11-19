@@ -21,7 +21,7 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Hạn thanh toán (ngày)</label>
-                    <input v-model.number="form.payment_term_days" type="number" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.payment_term_days" :min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -50,6 +50,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 const form = useForm({
     code: '', name: '', tax_code: '', phone: '', email: '',

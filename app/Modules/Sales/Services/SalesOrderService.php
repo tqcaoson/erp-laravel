@@ -3,6 +3,7 @@
 namespace App\Modules\Sales\Services;
 
 use App\Core\Contracts\StockServiceInterface;
+use App\Core\Models\ApprovalLog;
 use App\Core\Services\DocumentNumberingService;
 use App\Modules\Sales\Events\SalesOrderConfirmed;
 use App\Modules\Sales\Models\SalesOrder;
@@ -297,15 +298,44 @@ class SalesOrderService
         ];
     }
 
-    /** Duyệt đơn đang chờ duyệt (pending_approval → confirmed) + phát event. */
+    /**
+     * Duyệt đơn đang chờ duyệt (pending_approval → confirmed) + phát event.
+     *
+     * Maker-checker: người tạo đơn không được duyệt đơn của chính mình.
+     * Chỉ chặn khi biết cả người tạo và người duyệt (cả hai non-null);
+     * gọi trực tiếp không đăng nhập thì bỏ qua kiểm tra này.
+     * Ghi ApprovalLog như PurchaseOrderService::approve() (chỉ ghi khi
+     * có người đăng nhập vì cột approver_id bắt buộc).
+     */
     public function approve(SalesOrder $order): array
     {
         if ($order->status !== 'pending_approval') {
             throw new DomainException('Chỉ duyệt được đơn bán ở trạng thái chờ duyệt.');
         }
 
+        $approverId = auth()->id();
+
+        if ($approverId !== null && $order->created_by !== null && (int) $approverId === (int) $order->created_by) {
+            throw new DomainException('Người tạo đơn không được duyệt đơn của chính mình.');
+        }
+
         $order->loadMissing(['lines', 'customer']);
         $warnings = $this->checkStockAvailability($order);
+
+        if ($approverId !== null) {
+            ApprovalLog::create([
+                'company_id' => $order->company_id,
+                'approval_rule_id' => null,
+                'approvable_type' => SalesOrder::class,
+                'approvable_id' => $order->id,
+                'approver_id' => $approverId,
+                'level' => 1,
+                'decision' => 'approved',
+                'note' => null,
+                'ip_address' => request()->ip(),
+            ]);
+        }
+
         $this->markConfirmed($order);
 
         return [

@@ -45,8 +45,22 @@
                     <input v-model="form.hire_date" type="date" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
                 <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Ngày nghỉ việc</label>
+                    <input v-model="form.termination_date" type="date" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p class="mt-1 text-xs text-slate-500">Nhân viên nghỉ giữa tháng vẫn được tính lương phần đã làm trong tháng đó.</p>
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Số người phụ thuộc</label>
+                    <NumberInput v-model="form.dependents_count" :min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p class="mt-1 text-xs text-slate-500">Giảm trừ 6.200.000 đ/người/tháng khi tính thuế TNCN.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Lương cơ bản (VND)</label>
-                    <input v-model="form.base_salary" type="number" min="0" step="1000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.base_salary" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Trạng thái</label>
@@ -80,6 +94,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 const props = defineProps({
     employee: { type: Object, required: true },
@@ -96,6 +111,8 @@ const form = useForm({
     position_id: props.employee.position_id ?? null,
     user_id: props.employee.user_id ?? null,
     hire_date: props.employee.hire_date ? String(props.employee.hire_date).slice(0, 10) : '',
+    termination_date: props.employee.termination_date ? String(props.employee.termination_date).slice(0, 10) : '',
+    dependents_count: props.employee.dependents_count ?? 0,
     base_salary: props.employee.base_salary ?? 0,
     status: props.employee.status,
 });

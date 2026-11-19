@@ -7,6 +7,7 @@ use App\Modules\Manufacturing\Models\Bom;
 use App\Modules\Manufacturing\Models\ManufacturingOrder;
 use App\Modules\Manufacturing\Models\Routing;
 use App\Modules\Manufacturing\Requests\CompleteManufacturingOrderRequest;
+use App\Modules\Manufacturing\Requests\LogManufacturingProgressRequest;
 use App\Modules\Manufacturing\Requests\StoreManufacturingOrderRequest;
 use App\Modules\Manufacturing\Services\ManufacturingOrderService;
 use App\Modules\Manufacturing\Support\CatalogLookup;
@@ -113,6 +114,29 @@ class ManufacturingOrderController extends Controller
         }
 
         return back()->with('success', 'Đã bắt đầu sản xuất.');
+    }
+
+    /** Ghi nhận tiến độ từng phần (không đổi trạng thái lệnh). */
+    public function logProgress(LogManufacturingProgressRequest $request, ManufacturingOrder $order)
+    {
+        try {
+            $result = $this->manufacturingOrders->logProgress(
+                $order,
+                (float) $request->validated()['qty_produced'],
+                (float) ($request->validated()['qty_scrap'] ?? 0),
+            );
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $message = 'Đã ghi nhận tiến độ: thêm '.number_format((float) $request->validated()['qty_produced'], 2, ',', '.')
+            .' thành phẩm (tổng đã sản xuất '.number_format((float) $result['order']->produced_qty, 2, ',', '.')
+            .' / '.number_format((float) $order->qty, 2, ',', '.').').';
+        if ($result['warnings'] !== []) {
+            $message .= ' Lưu ý: '.implode(' ', $result['warnings']);
+        }
+
+        return back()->with('success', $message);
     }
 
     public function complete(CompleteManufacturingOrderRequest $request, ManufacturingOrder $order)

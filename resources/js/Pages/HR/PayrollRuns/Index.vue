@@ -2,7 +2,7 @@
     <div class="space-y-5">
         <div>
             <h1 class="text-2xl font-bold text-slate-900">Bảng lương</h1>
-            <p class="mt-1 text-sm text-slate-500">Kỳ lương theo tháng: tạo kỳ → tính lương → xem trước → khóa (không sửa được nữa, sinh bút toán lương).</p>
+            <p class="mt-1 text-sm text-slate-500">Kỳ lương theo tháng: tạo kỳ → tính lương → xem trước → khóa → duyệt (sinh bút toán lương) → đánh dấu đã trả.</p>
         </div>
 
         <form
@@ -27,6 +27,8 @@
                 <option value="draft">Nháp</option>
                 <option value="calculated">Đã tính</option>
                 <option value="locked">Đã khóa</option>
+                <option value="approved">Đã duyệt</option>
+                <option value="paid">Đã trả</option>
             </select>
         </div>
 
@@ -35,7 +37,7 @@
                 Tháng {{ value }}
             </template>
             <template #cell-status="{ value }">
-                <StatusBadge :status="payrollBadge(value)" />
+                <StatusBadge :status="value" />
             </template>
             <template #cell-total_gross="{ value }">
                 {{ money(value) }}
@@ -91,9 +93,5 @@ function submit() {
 
 function applyFilters() {
     router.get(route('hr.payroll-runs.index'), filterForm, { preserveState: true, preserveScroll: true });
-}
-
-function payrollBadge(status) {
-    return { draft: 'draft', calculated: 'approved', locked: 'locked' }[status] ?? status;
 }
 </script>

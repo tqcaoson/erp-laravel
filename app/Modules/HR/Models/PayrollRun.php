@@ -10,6 +10,15 @@ class PayrollRun extends BaseModel
     public const STATUS_DRAFT = 'draft';
     public const STATUS_CALCULATED = 'calculated';
     public const STATUS_LOCKED = 'locked';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_PAID = 'paid';
+
+    /** Các trạng thái nhân viên được xem phiếu lương của mình. */
+    public const VISIBLE_TO_EMPLOYEE_STATUSES = [
+        self::STATUS_LOCKED,
+        self::STATUS_APPROVED,
+        self::STATUS_PAID,
+    ];
 
     protected $fillable = [
         'company_id', 'code', 'period', 'status',
@@ -31,9 +40,16 @@ class PayrollRun extends BaseModel
         return $this->hasMany(Payslip::class);
     }
 
-    /** Kỳ lương đã khóa thì không được tính lại hay sửa. */
+    /**
+     * Kỳ lương đã khóa (kể cả đã duyệt / đã trả) thì không được tính lại
+     * hay sửa — các trạng thái sau khóa đều là trạng thái "đóng" của kỳ.
+     */
     public function isLocked(): bool
     {
-        return $this->status === self::STATUS_LOCKED;
+        return in_array($this->status, [
+            self::STATUS_LOCKED,
+            self::STATUS_APPROVED,
+            self::STATUS_PAID,
+        ], true);
     }
 }

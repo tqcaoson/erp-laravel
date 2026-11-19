@@ -4,6 +4,9 @@ namespace App\Modules\HR\Http\Controllers;
 
 use App\Modules\HR\Models\AttendanceLog;
 use App\Modules\HR\Models\Employee;
+use App\Modules\HR\Models\LeaveRequest;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -22,6 +25,13 @@ class MyAttendanceController extends Controller
 
     public function index(Request $request)
     {
+        // Tháng hiển thị (?month=YYYY-MM). Sai định dạng thì về tháng hiện tại,
+        // không 500 — tham số này do người dùng tự sửa trên URL.
+        $month = $request->input('month');
+        if (! is_string($month) || ! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month)) {
+            $month = now()->format('Y-m');
+        }
+
         $employee = $this->myEmployee();
 
         if (! $employee) {
@@ -29,9 +39,54 @@ class MyAttendanceController extends Controller
                 'employee' => null,
                 'logs' => null,
                 'todayLog' => null,
+                'month' => $month,
+                'logsByDate' => (object) [],
+                'approvedLeaveDates' => [],
             ]);
         }
 
+        $startOfMonth = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $endOfMonth = $startOfMonth->copy()->endOfMonth();
+
+        // Log chấm công của cả tháng (không phân trang — để vẽ lịch).
+        $monthLogs = AttendanceLog::with('shift:id,name')
+            ->where('employee_id', $employee->id)
+            ->whereBetween('work_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+            ->orderBy('work_date')
+            ->get();
+
+        $logsByDate = $monthLogs->mapWithKeys(
+            fn (AttendanceLog $log) => [$log->work_date->format('Y-m-d') => $log]
+        )->all();
+
+        // Ngày nghỉ phép đã duyệt giao với tháng (kể cả đơn bắt đầu từ tháng
+        // trước hoặc kéo sang tháng sau). Chỉ lấy ngày làm việc T2–T6, nhất
+        // quán với LeaveService::countDays. Chưa có bảng ngày lễ đợt này nên
+        // lịch chỉ phân biệt T7/CN + đơn nghỉ đã duyệt.
+        $approvedLeaveDates = LeaveRequest::where('employee_id', $employee->id)
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->where('start_date', '<=', $endOfMonth->toDateString())
+            ->where('end_date', '>=', $startOfMonth->toDateString())
+            ->get()
+            ->flatMap(function (LeaveRequest $leave) use ($startOfMonth, $endOfMonth) {
+                // Chỉ lấy phần đơn giao với tháng đang xem.
+                $from = $leave->start_date->greaterThan($startOfMonth)
+                    ? $leave->start_date->copy()->startOfDay()
+                    : $startOfMonth->copy()->startOfDay();
+                $to = $leave->end_date->lessThan($endOfMonth)
+                    ? $leave->end_date->copy()->startOfDay()
+                    : $endOfMonth->copy()->startOfDay();
+
+                return collect(CarbonPeriod::create($from, $to))
+                    ->reject(fn (Carbon $day) => $day->isWeekend())
+                    ->map(fn (Carbon $day) => $day->format('Y-m-d'));
+            })
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        // Bảng lịch sử chi tiết (phân trang như trước, lọc 1 ngày).
         $logs = AttendanceLog::with('shift:id,name')
             ->where('employee_id', $employee->id)
             ->when($request->input('filter.work_date'), fn ($q, $date) => $q->whereDate('work_date', $date))
@@ -48,6 +103,9 @@ class MyAttendanceController extends Controller
             'logs' => $logs,
             'todayLog' => $todayLog,
             'filters' => $request->only(['filter']),
+            'month' => $month,
+            'logsByDate' => $logsByDate,
+            'approvedLeaveDates' => $approvedLeaveDates,
         ]);
     }
 

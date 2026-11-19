@@ -82,9 +82,12 @@ class InvoiceService
      * (sau khi commit, để Sales/Reporting nhận được dữ liệu đã lưu chắc chắn).
      *
      * - Hóa đơn bán: Nợ 131 (phải thu KH) / Có 511 (doanh thu) + Có 3331 (thuế GTGT).
-     * - Hóa đơn mua: Nợ 156 (hàng hóa) + Nợ 133 (thuế GTGT được khấu trừ) / Có 331 (phải trả NCC).
-     *   (Đơn giản hóa: hóa đơn mua từ phiếu nhập đã ghi sổ sẽ ghi trùng phần hàng hóa
-     *   nếu lập thêm — thực tế cần đối chiếu 3 chiều PO–GR–hóa đơn trước khi ghi sổ.)
+     * - Hóa đơn mua nhập tay (không gắn phiếu nhận): Nợ 156 (hàng hóa)
+     *   + Nợ 133 (thuế GTGT được khấu trừ) / Có 331 (phải trả NCC).
+     * - Hóa đơn mua từ phiếu nhận (source là GoodsReceipt): hàng đã ghi
+     *   Nợ 156 / Có 335 khi xác nhận phiếu nhận nên khi ghi sổ hóa đơn
+     *   chỉ kết chuyển: Nợ 335 (phần hàng) + Nợ 133 (thuế) / Có 331
+     *   (tổng hóa đơn) — không ghi trùng 156.
      */
     public function post(Invoice $invoice): Invoice
     {
@@ -108,13 +111,22 @@ class InvoiceService
                     ])),
                 ]);
             } else {
+                // Hóa đơn mua từ phiếu nhận: hàng đã ghi Nợ 156 / Có 335
+                // lúc xác nhận phiếu nên chỉ kết chuyển 335 → 331 (phần hàng)
+                // + ghi nhận thuế GTGT được khấu trừ. Hóa đơn mua nhập tay
+                // (không gắn phiếu nhận) vẫn ghi Nợ 156 như trước.
+                // So sánh bằng tên class dạng chuỗi để không import model
+                // của module Procurement (theo quy tắc phụ thuộc module).
+                $fromGoodsReceipt = $invoice->source_type === 'App\\Modules\\Procurement\\Models\\GoodsReceipt';
+                $goodsAccount = $fromGoodsReceipt ? '335' : '156';
+
                 $this->journal->post([
                     'entry_date' => $invoice->invoice_date->toDateString(),
                     'description' => "Ghi sổ hóa đơn mua hàng {$invoice->code}",
                     'source_type' => Invoice::class,
                     'source_id' => $invoice->id,
                     'lines' => array_values(array_filter([
-                        ['account_code' => '156', 'debit' => (float) $invoice->subtotal, 'credit' => 0, 'partner_type' => 'supplier', 'partner_id' => $invoice->supplier_id],
+                        ['account_code' => $goodsAccount, 'debit' => (float) $invoice->subtotal, 'credit' => 0, 'partner_type' => 'supplier', 'partner_id' => $invoice->supplier_id],
                         (float) $invoice->tax_amount > 0
                             ? ['account_code' => '133', 'debit' => (float) $invoice->tax_amount, 'credit' => 0]
                             : null,

@@ -27,10 +27,12 @@
                                 </select>
                             </td>
                             <td class="px-3 py-2">
-                                <input v-model.number="line.qty" type="number" min="0" step="0.0001" class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <NumberInput v-model="line.qty" :decimals="4" :min="0.0001" placeholder="VD: 10" class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <p v-if="form.errors[`lines.${i}.qty`]" class="mt-1 text-left text-xs text-red-600">{{ form.errors[`lines.${i}.qty`] }}</p>
                             </td>
                             <td class="px-3 py-2">
-                                <input v-model.number="line.unit_price" type="number" min="0" step="0.01" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <NumberInput v-model="line.unit_price" :min="0" placeholder="VD: 20000" class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none" />
+                                <p v-if="form.errors[`lines.${i}.unit_price`]" class="mt-1 text-left text-xs text-red-600">{{ form.errors[`lines.${i}.unit_price`] }}</p>
                             </td>
                             <td class="px-3 py-2">
                                 <select v-model="line.warehouse_id" class="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none">
@@ -46,6 +48,7 @@
                 </table>
             </div>
             <p v-if="form.errors.lines" class="text-sm text-red-600">{{ form.errors.lines }}</p>
+            <p class="text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn (VD: 20.000 = 20000). Số lượng tối thiểu 0.0001.</p>
             <div class="flex items-center justify-between">
                 <button type="button" @click="addLine" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">+ Thêm dòng</button>
                 <p class="text-sm font-semibold text-slate-800">Tổng ước tính: {{ money(totalAmount) }}</p>
@@ -61,6 +64,7 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { useFormat } from '../../../composables/useFormat.js';
 
 const props = defineProps({

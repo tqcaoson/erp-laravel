@@ -24,7 +24,7 @@
                     Xác nhận
                 </button>
                 <button
-                    v-if="order.status === 'pending_approval' && can('sales.order.approve')"
+                    v-if="order.status === 'pending_approval' && can('sales.order.approve') && order.created_by !== currentUserId"
                     class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
                     @click="postAction('approve')"
                 >
@@ -130,7 +130,7 @@
 </template>
 
 <script setup>
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import DataTable from '../../../Components/DataTable.vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
@@ -144,6 +144,10 @@ const props = defineProps({
 
 const { money, date, number } = useFormat();
 const { can } = usePermission();
+
+// Maker-checker (chỉ ẩn nút ở giao diện; chặn chính nằm ở service).
+const page = usePage();
+const currentUserId = computed(() => page.props.auth?.user?.id);
 
 // Còn thiếu ở ít nhất 1 dòng → hiện nút "Giao phần còn lại".
 const hasRemaining = computed(() =>

@@ -70,7 +70,9 @@
             <div class="grid gap-3 sm:grid-cols-3">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Số tiền *</label>
-                    <input v-model.number="payForm.amount" type="number" min="0.01" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="payForm.amount" :min="0.01" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p v-if="payForm.errors.amount" class="mt-1 text-sm text-red-600">{{ payForm.errors.amount }}</p>
+                    <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Ngày thanh toán *</label>
@@ -111,6 +113,7 @@
 
 <script setup>
 import { Link, router, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { useFormat } from '../../../composables/useFormat';
 import { usePermission } from '../../../composables/usePermission';

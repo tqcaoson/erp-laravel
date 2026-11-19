@@ -15,7 +15,8 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Chi phí mỗi giờ (₫)</label>
-                    <input v-model.number="form.cost_per_hour" type="number" min="0" step="1000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.cost_per_hour" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 </div>
                 <div class="flex items-end gap-2 pb-2">
                     <input id="is_active" v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
@@ -37,6 +38,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 const props = defineProps({
     workCenter: { type: Object, default: null },

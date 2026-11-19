@@ -71,11 +71,35 @@ class PayrollRunApiController extends Controller
         return response()->json(['message' => "Đã đưa kỳ lương {$payrollRun->period} vào hàng đợi tính lương."]);
     }
 
-    /** Khóa kỳ lương (phát event PayrollRunLocked cho Kế toán). */
+    /** Khóa kỳ lương (không sửa được nữa; bút toán chỉ sinh khi duyệt). */
     public function lock(PayrollRun $payrollRun)
     {
         try {
             $run = $this->payrollService->lock($payrollRun);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        }
+
+        return $run;
+    }
+
+    /** Duyệt kỳ lương đã khóa (phát event PayrollRunApproved cho Kế toán). */
+    public function approve(PayrollRun $payrollRun)
+    {
+        try {
+            $run = $this->payrollService->approve($payrollRun);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        }
+
+        return $run;
+    }
+
+    /** Đánh dấu kỳ lương đã duyệt là đã trả cho nhân viên. */
+    public function pay(PayrollRun $payrollRun)
+    {
+        try {
+            $run = $this->payrollService->pay($payrollRun);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 409);
         }

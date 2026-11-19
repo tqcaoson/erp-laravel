@@ -10,8 +10,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 
 /**
  * Phiếu nhận hàng đã xác nhận → ghi nhận hàng nhập kho.
- * Bút toán: Nợ 156 (hàng hóa) / Có 331 (phải trả NCC), theo tổng
- * giá trị nhập (số lượng × đơn giá nhập của từng dòng).
+ * Bút toán: Nợ 156 (hàng hóa) / Có 335 (hàng về chưa có hóa đơn),
+ * theo tổng giá trị nhập (số lượng × đơn giá nhập của từng dòng).
+ * Công nợ 331 chỉ phát sinh khi hóa đơn mua từ phiếu nhận được ghi sổ
+ * (InvoiceService::post kết chuyển 335 → 331), tránh ghi trùng 156
+ * nếu lập hóa đơn sau khi đã nhập kho.
  */
 class PostGoodsReceipt implements ShouldQueue
 {
@@ -39,7 +42,7 @@ class PostGoodsReceipt implements ShouldQueue
             'source_id' => $event->goodsReceiptId,
             'lines' => [
                 ['account_code' => '156', 'debit' => $total, 'credit' => 0],
-                ['account_code' => '331', 'debit' => 0, 'credit' => $total, 'partner_type' => 'supplier', 'partner_id' => $event->supplierId],
+                ['account_code' => '335', 'debit' => 0, 'credit' => $total, 'partner_type' => 'supplier', 'partner_id' => $event->supplierId],
             ],
         ]);
     }

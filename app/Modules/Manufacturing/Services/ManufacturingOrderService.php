@@ -162,26 +162,60 @@ class ManufacturingOrderService
     }
 
     /**
-     * Hoàn thành sản xuất: ghi nhật ký, xuất kho nguyên liệu đã tiêu hao,
-     * nhập kho thành phẩm với giá vốn = tổng chi phí nguyên liệu / số lượng.
+     * Ghi nhận tiến độ từng phần: ghi nhật ký, xuất kho nguyên liệu cho
+     * đợt này, nhập kho thành phẩm của đợt này, cộng produced_qty.
+     * KHÔNG đổi trạng thái lệnh (vẫn in_progress) và KHÔNG đóng công đoạn.
+     *
+     * @return array{order: ManufacturingOrder, unit_cost: float, warnings: list<string>}
+     */
+    public function logProgress(ManufacturingOrder $order, float $qtyProduced, float $qtyScrap = 0): array
+    {
+        return $this->recordProduction($order, $qtyProduced, $qtyScrap, false);
+    }
+
+    /**
+     * Hoàn thành sản xuất (lần chốt cuối): ghi nhật ký, xuất kho nguyên liệu,
+     * nhập kho thành phẩm, đóng lệnh và đóng các công đoạn còn dở.
+     *
+     * Nguyên liệu chỉ xuất cho số lượng của ĐỢT NÀY (qtyProduced + qtyScrap
+     * truyền vào), không tính lại từ đầu — phần nguyên liệu của các lần
+     * logProgress trước đã xuất rồi nên không xuất trùng. Ví dụ: đã ghi
+     * tiến độ 40 cái, lần chốt này truyền 60 cái thì chỉ xuất nguyên liệu
+     * cho 60 cái. produced_qty lũy kế chỉ dùng để hiển thị tiến độ.
      *
      * @return array{order: ManufacturingOrder, unit_cost: float, warnings: list<string>}
      */
     public function complete(ManufacturingOrder $order, float $qtyProduced, float $qtyScrap = 0): array
     {
+        return $this->recordProduction($order, $qtyProduced, $qtyScrap, true);
+    }
+
+    /**
+     * Ghi nhận 1 đợt sản lượng (dùng chung cho logProgress và complete).
+     * $close = true thì chốt lệnh (status completed + đóng công đoạn dở).
+     *
+     * @return array{order: ManufacturingOrder, unit_cost: float, warnings: list<string>}
+     */
+    protected function recordProduction(ManufacturingOrder $order, float $qtyProduced, float $qtyScrap, bool $close): array
+    {
         if ($order->status !== 'in_progress') {
-            throw new DomainException('Chỉ hoàn thành được lệnh sản xuất đang thực hiện.');
+            throw new DomainException('Chỉ ghi nhận tiến độ / hoàn thành được lệnh sản xuất đang thực hiện.');
         }
 
         if ($qtyProduced <= 0) {
             throw new DomainException('Số lượng thành phẩm phải lớn hơn 0.');
         }
 
+        if ($qtyScrap < 0) {
+            throw new DomainException('Số lượng phế phẩm không được âm.');
+        }
+
         if (! $order->warehouse_id) {
             throw new DomainException('Lệnh sản xuất chưa chọn kho — không nhập kho thành phẩm được.');
         }
 
-        // Nguyên liệu tiêu hao tính theo tổng sản lượng (thành phẩm + phế phẩm).
+        // Nguyên liệu tiêu hao tính theo tổng sản lượng của ĐỢT NÀY
+        // (thành phẩm + phế phẩm), không tính lại phần đã ghi trước đó.
         $consumed = $this->requiredMaterials($order, $qtyProduced + $qtyScrap);
         $materialCost = 0.0;
         foreach ($consumed as $productId => $qty) {
@@ -196,8 +230,27 @@ class ManufacturingOrderService
             $warnings[] = 'Chưa kết nối được kho hàng nên chưa xuất nguyên liệu / nhập thành phẩm thật — cần đối soát tồn sau.';
         }
 
-        DB::transaction(function () use ($order, $qtyProduced, $qtyScrap, $consumed, $unitCost, $stock) {
-            // Xuất kho nguyên liệu đã tiêu hao.
+        // Kiểm tra tồn trước khi xuất: không bao giờ để tồn âm lặng.
+        // StockService::issue() cũng tự ném DomainException khi thiếu tồn,
+        // nhưng kiểm tra trước ở đây cho thông báo rõ ràng theo lệnh sản xuất
+        // và tránh xuất dở dang (transaction sẽ rollback, nhưng báo lỗi sớm
+        // thì người dùng biết ngay nguyên liệu nào thiếu bao nhiêu).
+        if ($stock && $consumed !== []) {
+            $names = $this->productNames(array_keys($consumed));
+            foreach ($consumed as $productId => $qty) {
+                $available = $stock->availableQty((int) $productId, (int) $order->warehouse_id);
+                if ($available < $qty) {
+                    $name = $names[$productId] ?? ("Sản phẩm #{$productId}");
+                    throw new DomainException(
+                        "Không đủ tồn kho để ghi nhận đợt này: {$name} tại kho chỉ còn "
+                        .number_format($available, 2, ',', '.').', cần xuất '.number_format($qty, 2, ',', '.').'.'
+                    );
+                }
+            }
+        }
+
+        DB::transaction(function () use ($order, $qtyProduced, $qtyScrap, $consumed, $unitCost, $stock, $close) {
+            // Xuất kho nguyên liệu đã tiêu hao cho đợt này.
             if ($stock) {
                 foreach ($consumed as $productId => $qty) {
                     $stock->issue(
@@ -210,7 +263,7 @@ class ManufacturingOrderService
                     );
                 }
 
-                // Nhập kho thành phẩm với giá vốn vừa tính.
+                // Nhập kho thành phẩm của đợt này với giá vốn vừa tính.
                 $stock->receive(
                     (int) $order->product_id,
                     (int) $order->warehouse_id,
@@ -230,13 +283,18 @@ class ManufacturingOrderService
                 'logged_at' => now(),
             ]);
 
-            $order->update([
-                'produced_qty' => (float) $order->produced_qty + $qtyProduced,
-                'status' => 'completed',
-            ]);
+            $updates = ['produced_qty' => (float) $order->produced_qty + $qtyProduced];
 
-            // Đóng các công đoạn còn dở.
-            $order->workOrders()->whereIn('status', ['pending', 'in_progress'])->update(['status' => 'completed']);
+            if ($close) {
+                $updates['status'] = 'completed';
+            }
+
+            $order->update($updates);
+
+            if ($close) {
+                // Đóng các công đoạn còn dở.
+                $order->workOrders()->whereIn('status', ['pending', 'in_progress'])->update(['status' => 'completed']);
+            }
         });
 
         return [

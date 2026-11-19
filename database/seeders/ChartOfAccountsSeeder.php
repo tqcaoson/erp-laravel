@@ -10,7 +10,7 @@ use Illuminate\Database\Seeder;
 /**
  * Hệ thống tài khoản theo TT200 rút gọn (~35 tài khoản).
  * Bao gồm đầy đủ các mã dùng trong bút toán tự động:
- * 111, 112, 131, 133, 156, 331, 3331, 3335, 334, 338,
+ * 111, 112, 131, 133, 156, 331, 3331, 3335, 334, 335, 338, 3388,
  * 511, 521, 622, 632, 642, 711, 811.
  *
  * Idempotent: firstOrCreate theo (code, company_id), chạy lại không trùng.
@@ -43,7 +43,9 @@ class ChartOfAccountsSeeder extends Seeder
         ['3331', 'Thuế giá trị gia tăng phải nộp', 'liability', '333'],
         ['3335', 'Thuế thu nhập cá nhân', 'liability', '333'],
         ['334', 'Phải trả người lao động', 'liability', null],
+        ['335', 'Hàng về chưa có hóa đơn', 'liability', null],
         ['338', 'Phải trả, phải nộp khác', 'liability', null],
+        ['3388', 'Phải trả, phải nộp khác', 'liability', '338'],
         ['341', 'Vay và nợ thuê tài chính', 'liability', null],
         // Vốn chủ sở hữu
         ['411', 'Vốn đầu tư của chủ sở hữu', 'equity', null],

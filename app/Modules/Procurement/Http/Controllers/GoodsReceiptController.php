@@ -63,9 +63,24 @@ class GoodsReceiptController extends Controller
 
     public function show(GoodsReceipt $goodsReceipt)
     {
+        // Nạp thêm dòng đơn mua liên kết từng dòng nhận để giao diện hiển
+        // thị "Số lượng đặt" và "Còn thiếu sau phiếu này".
         return Inertia::render('Procurement/GoodsReceipts/Show', [
-            'receipt' => $goodsReceipt->load(['supplier', 'warehouse', 'purchaseOrder', 'lines.product']),
+            'receipt' => $goodsReceipt->load(['supplier', 'warehouse', 'purchaseOrder.lines', 'lines.product', 'lines.purchaseOrderLine']),
         ]);
+    }
+
+    /** Lập hóa đơn mua nháp từ phần đã nhận chưa lập hóa đơn của phiếu nhận. */
+    public function createInvoice(GoodsReceipt $goodsReceipt)
+    {
+        try {
+            $invoiceId = $this->goodsReceiptService->createInvoiceFromReceipt($goodsReceipt);
+        } catch (DomainException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('accounting.invoices.show', $invoiceId)
+            ->with('success', 'Đã lập hóa đơn mua từ phiếu nhận hàng.');
     }
 
     /** Xác nhận phiếu nhận: đối chiếu PO, cập nhật PO, tăng tồn kho. */

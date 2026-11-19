@@ -3,6 +3,7 @@
 namespace App\Modules\HR\Services;
 
 use App\Core\Services\DocumentNumberingService;
+use App\Modules\HR\Models\AttendanceLog;
 use App\Modules\HR\Models\Employee;
 use App\Modules\HR\Models\LeaveBalance;
 use App\Modules\HR\Models\LeaveRequest;
@@ -97,9 +98,11 @@ class LeaveService
     }
 
     /**
-     * Duyệt đơn nghỉ: trừ phép năm trong leave_balances (nếu là phép năm)
-     * rồi chuyển trạng thái approved. Chạy trong transaction để số dư
-     * và trạng thái luôn nhất quán.
+     * Duyệt đơn nghỉ: trừ phép năm trong leave_balances (nếu là phép năm),
+     * sinh/cập nhật AttendanceLog status=leave cho các ngày làm việc
+     * trong đơn (để chấm công và nghỉ phép nhất quán), rồi chuyển trạng
+     * thái approved. Chạy trong transaction để số dư, chấm công và
+     * trạng thái luôn nhất quán.
      */
     public function approve(LeaveRequest $leaveRequest, int $approverId): LeaveRequest
     {
@@ -119,6 +122,30 @@ class LeaveService
                 }
 
                 $balance->increment('used_days', (float) $leaveRequest->days);
+            }
+
+            // Đơn đã duyệt nghĩa là các ngày làm việc trong đơn đều là
+            // ngày nghỉ có phép: ghi đè log chấm công cùng ngày (vd log
+            // absent tạo trước khi đơn được duyệt) thành leave.
+            $start = $leaveRequest->start_date->copy()->startOfDay();
+            $end = $leaveRequest->end_date->copy()->startOfDay();
+            for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
+                if ($day->isWeekend()) {
+                    continue;
+                }
+
+                // Truyền Carbon (không phải chuỗi 'Y-m-d') vào khóa tra cứu:
+                // cột work_date được cast 'date' nên lưu dạng datetime
+                // 'Y-m-d 00:00:00', so sánh chuỗi 'Y-m-d' sẽ không khớp
+                // và tạo trùng log thay vì cập nhật log đã có.
+                AttendanceLog::updateOrCreate(
+                    [
+                        'company_id' => $leaveRequest->company_id,
+                        'employee_id' => $leaveRequest->employee_id,
+                        'work_date' => $day->copy()->startOfDay(),
+                    ],
+                    ['status' => AttendanceLog::STATUS_LEAVE],
+                );
             }
 
             $leaveRequest->update([

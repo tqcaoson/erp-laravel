@@ -16,6 +16,7 @@
         </div>
 
         <form @submit.prevent="saveCounted" class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <p class="px-4 pt-3 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
             <table class="min-w-full divide-y divide-slate-200">
                 <thead class="bg-slate-50">
                     <tr>
@@ -30,9 +31,9 @@
                         <td class="px-4 py-3 text-sm text-slate-700">{{ line.product?.sku }} — {{ line.product?.name }}</td>
                         <td class="px-4 py-3 text-right text-sm text-slate-700">{{ number(line.system_qty, 2) }}</td>
                         <td class="px-4 py-3 text-right">
-                            <input
-                                v-model.number="line.counted_qty"
-                                type="number" min="0" step="0.0001"
+                            <NumberInput
+                                v-model="line.counted_qty"
+                                :decimals="4" :min="0"
                                 :disabled="!['draft', 'in_progress'].includes(count.status)"
                                 class="w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-right text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50"
                             />
@@ -58,6 +59,7 @@
 
 <script setup>
 import { router } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { reactive, ref } from 'vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { useFormat } from '../../../composables/useFormat.js';

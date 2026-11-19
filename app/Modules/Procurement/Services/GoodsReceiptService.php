@@ -118,6 +118,92 @@ class GoodsReceiptService
         return $receipt;
     }
 
+    /**
+     * Lập hóa đơn mua nháp từ phần đã nhận chưa lập hóa đơn của phiếu nhận.
+     *
+     * Mỗi dòng hóa đơn lấy (qty − invoiced_qty) × đơn giá nhập của dòng
+     * phiếu nhận. Dòng đơn mua hiện không có thuế suất riêng theo dòng
+     * (thuế nằm ở cấp đơn mua) nên thuế suất mặc định 0; kế toán bổ sung
+     * thuế khi sửa hóa đơn nháp nếu hóa đơn thực tế có thuế GTGT.
+     * Hóa đơn gắn source_type/source_id về phiếu nhận để khi ghi sổ,
+     * InvoiceService kết chuyển 335 → 331 thay vì ghi trùng 156.
+     *
+     * @return int id hóa đơn nháp vừa tạo
+     *
+     * @throws DomainException khi phiếu chưa xác nhận, đã lập hóa đơn hết
+     *                         phần đã nhận, hoặc module Kế toán chưa khả dụng.
+     */
+    public function createInvoiceFromReceipt(GoodsReceipt $receipt): int
+    {
+        if ($receipt->status !== 'validated') {
+            throw new DomainException('Phiếu nhận hàng chưa được xác nhận nên chưa lập được hóa đơn mua.');
+        }
+
+        $receipt->loadMissing(['lines', 'supplier']);
+
+        $billable = [];
+        foreach ($receipt->lines as $line) {
+            $qty = (float) $line->qty - (float) ($line->invoiced_qty ?? 0);
+
+            if ($qty > 0) {
+                $billable[] = ['line' => $line, 'qty' => $qty];
+            }
+        }
+
+        if ($billable === []) {
+            throw new DomainException('Phiếu nhận hàng không còn phần nào chưa lập hóa đơn.');
+        }
+
+        if (! class_exists(\App\Modules\Accounting\Services\InvoiceService::class)) {
+            throw new DomainException('Module Kế toán chưa khả dụng nên chưa lập được hóa đơn.');
+        }
+
+        // Tên sản phẩm cho diễn giải dòng hóa đơn (đọc bằng query builder,
+        // không import model của Inventory — theo quy tắc phụ thuộc module).
+        $productNames = DB::table('products')
+            ->whereIn('id', collect($billable)->map(fn ($item) => (int) $item['line']->product_id)->all())
+            ->pluck('name', 'id');
+
+        $invoiceLines = [];
+        foreach ($billable as $item) {
+            $line = $item['line'];
+            $name = $productNames[(int) $line->product_id] ?? ('Sản phẩm #'.$line->product_id);
+
+            $invoiceLines[] = [
+                'product_id' => (int) $line->product_id,
+                'description' => $name,
+                'qty' => $item['qty'],
+                'unit_price' => (float) $line->unit_cost,
+                'tax_rate' => 0,
+            ];
+        }
+
+        $dueDate = null;
+        $termDays = (int) ($receipt->supplier->payment_term_days ?? 0);
+        if ($termDays > 0) {
+            $dueDate = now()->addDays($termDays)->toDateString();
+        }
+
+        return DB::transaction(function () use ($receipt, $billable, $invoiceLines, $dueDate) {
+            $invoice = app(\App\Modules\Accounting\Services\InvoiceService::class)->create([
+                'type' => 'purchase',
+                'supplier_id' => (int) $receipt->supplier_id,
+                'source_type' => GoodsReceipt::class,
+                'source_id' => $receipt->id,
+                'invoice_date' => now()->toDateString(),
+                'due_date' => $dueDate,
+                'lines' => $invoiceLines,
+            ], (int) $receipt->company_id);
+
+            // Ghi nhận phần vừa lập hóa đơn để lần sau không lập trùng.
+            foreach ($billable as $item) {
+                $item['line']->increment('invoiced_qty', $item['qty']);
+            }
+
+            return $invoice->id;
+        });
+    }
+
     /** Hủy phiếu nhận hàng nháp. */
     public function cancel(int $receiptId): GoodsReceipt
     {

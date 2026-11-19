@@ -60,7 +60,7 @@ class EmployeeController extends Controller
             'code' => 'TMP-'.uniqid(),
         ]);
 
-        $employee->update(['code' => 'NV-'.str_pad($employee->id, 4, '0', STR_PAD_LEFT)]);
+        Employee::assignCode($employee);
 
         return redirect()->route('hr.employees.show', $employee)
             ->with('success', "Đã tạo nhân viên {$employee->full_name} ({$employee->code}).");

@@ -99,6 +99,8 @@ class RolePermissionSeeder extends Seeder
             'hr.payroll.view' => 'Xem bảng lương',
             'hr.payroll.run' => 'Chạy bảng lương',
             'hr.payroll.approve' => 'Khóa bảng lương',
+            'hr.payroll.lock' => 'Khóa bảng lương',
+            'hr.payroll.pay' => 'Đánh dấu đã trả lương',
             'hr.payslip.self' => 'Xem phiếu lương của mình',
         ],
         'reporting' => [
@@ -118,14 +120,29 @@ class RolePermissionSeeder extends Seeder
     public const ROLE_PERMISSIONS = [
         'admin' => ['*'],
         'giam_doc' => ['*.view', 'sales.order.approve', 'procurement.po.approve', 'procurement.pr.approve', 'procurement.gr.validate', 'inventory.stock.confirm', 'hr.leave.approve', 'hr.payroll.approve', 'reporting.*'],
-        'ke_toan' => ['accounting.*', 'reporting.*', 'sales.order.view', 'sales.customer.view', 'procurement.po.view', 'procurement.supplier.view', 'hr.payroll.view'],
+        'ke_toan' => ['accounting.*', 'reporting.*', 'sales.order.view', 'sales.customer.view', 'procurement.po.view', 'procurement.supplier.view', 'procurement.supplier.manage', 'hr.payroll.view', 'hr.payroll.pay'],
         // Kho KHÔNG dùng wildcard 'inventory.*': quyền 'inventory.stock.confirm'
         // (duyệt phiếu kho) chỉ giao cho giám đốc để tách nhiệm vụ — thủ kho lập
         // phiếu, giám đốc duyệt. Liệt kê tường minh 7 quyền kho còn lại.
         'kho' => ['inventory.product.view', 'inventory.product.manage', 'inventory.warehouse.view', 'inventory.warehouse.manage', 'inventory.stock.view', 'inventory.stock.move', 'inventory.stock.count', 'procurement.po.view', 'procurement.supplier.view', 'procurement.gr.view', 'procurement.gr.create', 'sales.delivery.view', 'sales.delivery.validate', 'reporting.dashboard.view'],
-        'ban_hang' => ['sales.*', 'inventory.product.view', 'inventory.stock.view', 'reporting.*'],
-        'nhan_su' => ['hr.*', 'reporting.dashboard.view', 'reporting.report.view'],
+        // Bán hàng KHÔNG dùng wildcard 'sales.*': quyền 'sales.order.approve'
+        // (duyệt đơn bán vượt hạn mức) chỉ giao cho giám đốc — nhân viên bán
+        // hàng lập đơn, giám đốc duyệt. Liệt kê tường minh 15 quyền sales còn lại.
+        'ban_hang' => ['sales.customer.view', 'sales.customer.manage', 'sales.lead.view', 'sales.lead.manage', 'sales.opportunity.view', 'sales.opportunity.manage', 'sales.quotation.view', 'sales.quotation.create', 'sales.order.view', 'sales.order.create', 'sales.order.confirm', 'sales.delivery.view', 'sales.delivery.validate', 'sales.price.view', 'sales.price.manage', 'inventory.product.view', 'inventory.stock.view', 'reporting.*'],
+        // Nhân sự KHÔNG dùng wildcard 'hr.*': quyền 'hr.payroll.approve'
+        // (duyệt/khóa bảng lương) giao cho giám đốc, 'hr.payroll.pay'
+        // (đánh dấu đã trả lương) giao cho kế toán — nhân sự chạy và khóa
+        // bảng lương nhưng không tự duyệt, không tự đánh dấu đã trả.
+        // Liệt kê tường minh 13 quyền hr còn lại.
+        'nhan_su' => ['hr.employee.view', 'hr.employee.manage', 'hr.attendance.view', 'hr.attendance.manage', 'hr.attendance.self', 'hr.leave.view', 'hr.leave.request', 'hr.leave.approve', 'hr.leave.self', 'hr.payroll.view', 'hr.payroll.run', 'hr.payroll.lock', 'hr.payslip.self', 'reporting.dashboard.view', 'reporting.report.view'],
         'nhan_vien' => ['hr.attendance.self', 'hr.leave.self', 'hr.payslip.self', 'reporting.dashboard.view'],
+        // Nhân viên mua hàng: lập yêu cầu/đơn mua, quản lý RFQ và NCC,
+        // tạo phiếu nhận — KHÔNG duyệt (po.approve/pr.approve/gr.validate
+        // đều thuộc về giám đốc).
+        'mua_hang' => ['procurement.pr.view', 'procurement.pr.create', 'procurement.po.view', 'procurement.po.create', 'procurement.rfq.view', 'procurement.rfq.manage', 'procurement.supplier.view', 'procurement.supplier.manage', 'procurement.gr.view', 'procurement.gr.create', 'inventory.product.view', 'inventory.stock.view', 'reporting.dashboard.view'],
+        // Nhân viên sản xuất: chạy lệnh sản xuất và xem BOM/quy trình/
+        // trung tâm — KHÔNG quản lý BOM/quy trình/trung tâm (thuộc admin).
+        'san_xuat' => ['manufacturing.mo.view', 'manufacturing.mo.create', 'manufacturing.mo.start', 'manufacturing.mo.complete', 'manufacturing.bom.view', 'manufacturing.routing.view', 'manufacturing.workcenter.view', 'inventory.stock.view', 'inventory.product.view', 'reporting.dashboard.view'],
     ];
 
     public const ROLES = [
@@ -136,6 +153,8 @@ class RolePermissionSeeder extends Seeder
         'ban_hang' => 'Nhân viên bán hàng',
         'nhan_su' => 'Nhân sự',
         'nhan_vien' => 'Nhân viên',
+        'mua_hang' => 'Nhân viên mua hàng',
+        'san_xuat' => 'Nhân viên sản xuất',
     ];
 
     public function run(): void

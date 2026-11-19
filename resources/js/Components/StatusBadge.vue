@@ -18,6 +18,7 @@ const props = defineProps({
 
 const MAP = {
     draft: { label: 'Nháp', cls: 'bg-slate-100 text-slate-700 ring-slate-200' },
+    calculated: { label: 'Đã tính', cls: 'bg-sky-100 text-sky-800 ring-sky-200' },
     pending_approval: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-800 ring-amber-200' },
     pending: { label: 'Chờ xử lý', cls: 'bg-amber-100 text-amber-800 ring-amber-200' },
     approved: { label: 'Đã duyệt', cls: 'bg-blue-100 text-blue-800 ring-blue-200' },

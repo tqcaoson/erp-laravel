@@ -22,6 +22,14 @@
                 <p class="mt-2 text-2xl font-bold text-slate-900">{{ money(kpi.receivables) }}</p>
                 <p class="mt-1 text-xs text-slate-400">Hóa đơn bán đã ghi sổ, chưa thanh toán</p>
             </div>
+            <div v-if="can('accounting.invoice.view')" class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+                <p class="text-sm font-medium text-slate-500">Công nợ phải trả</p>
+                <p class="mt-2 text-2xl font-bold text-slate-900">{{ money(kpi.payables) }}</p>
+                <p class="mt-1 text-xs text-slate-400">Hóa đơn mua đã ghi sổ, chưa thanh toán</p>
+                <Link :href="route('reports.payables-by-supplier')" class="mt-1 inline-block text-xs font-medium text-blue-600 hover:underline">
+                    Xem chi tiết theo nhà cung cấp →
+                </Link>
+            </div>
             <div v-if="can('hr.employee.view')" class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
                 <p class="text-sm font-medium text-slate-500">Nhân viên đang hoạt động</p>
                 <p class="mt-2 text-2xl font-bold text-slate-900">{{ number(kpi.active_employees) }} người</p>
@@ -120,6 +128,23 @@
                 </ul>
                 <p v-else class="mt-3 text-sm text-slate-400">Không có hóa đơn quá hạn.</p>
                 <p v-if="alerts.overdue_invoices_total > 5" class="mt-3 text-xs text-slate-400">Đang hiển thị 5 / {{ number(alerts.overdue_invoices_total) }} mục.</p>
+            </div>
+            <div v-if="can('procurement.gr.validate')" class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
+                <h2 class="text-base font-semibold text-slate-900">Phiếu nhận chờ xác nhận</h2>
+                <p class="mt-1 text-xs text-slate-400">Phiếu nhận hàng đang ở trạng thái nháp — bấm vào để mở phiếu và xác nhận.</p>
+                <ul v-if="alerts.pending_goods_receipts.length" class="mt-3 space-y-2">
+                    <li v-for="gr in alerts.pending_goods_receipts" :key="gr.id" class="flex items-center justify-between gap-2 text-sm">
+                        <Link :href="route('procurement.goods-receipts.show', gr.id)" class="text-slate-700 hover:text-blue-600 hover:underline">
+                            {{ gr.code }}
+                            <span class="text-xs text-slate-400">· {{ gr.supplier_name ?? 'Nhà cung cấp #' + gr.supplier_id }} · {{ date(gr.receipt_date) }}</span>
+                        </Link>
+                    </li>
+                </ul>
+                <p v-else class="mt-3 text-sm text-slate-400">Không có phiếu nhận nào chờ xác nhận.</p>
+                <p v-if="alerts.pending_goods_receipts_total > 5" class="mt-3 text-xs text-slate-400">Đang hiển thị 5 / {{ number(alerts.pending_goods_receipts_total) }} mục.</p>
+                <Link :href="route('procurement.goods-receipts.index')" class="mt-3 inline-block text-xs font-medium text-blue-600 hover:underline">
+                    Xem danh sách phiếu nhận →
+                </Link>
             </div>
             <div v-if="can('hr.employee.view')" class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
                 <h2 class="text-base font-semibold text-slate-900">Hợp đồng sắp hết hạn (30 ngày)</h2>

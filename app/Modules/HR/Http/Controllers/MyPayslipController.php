@@ -3,6 +3,7 @@
 namespace App\Modules\HR\Http\Controllers;
 
 use App\Modules\HR\Models\Employee;
+use App\Modules\HR\Models\PayrollRun;
 use App\Modules\HR\Models\Payslip;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,8 +33,12 @@ class MyPayslipController extends Controller
             ]);
         }
 
+        // Nhân viên chỉ xem được phiếu lương của kỳ đã khóa trở đi
+        // (locked/approved/paid) — kỳ còn nháp hoặc mới tính xong thì
+        // chưa chốt, chưa cho xem.
         $payslips = Payslip::with('payrollRun:id,code,period,status')
             ->where('employee_id', $employee->id)
+            ->whereHas('payrollRun', fn ($q) => $q->whereIn('status', PayrollRun::VISIBLE_TO_EMPLOYEE_STATUSES))
             ->latest('id')
             ->paginate(15)
             ->withQueryString();
@@ -53,8 +58,11 @@ class MyPayslipController extends Controller
             abort(404);
         }
 
+        // Phiếu lương của kỳ chưa khóa thì chưa được xem (404 như
+        // phiếu của người khác — không lộ sự tồn tại của phiếu).
         $payslip = Payslip::with(['payrollRun:id,code,period,status', 'employee:id,code,full_name', 'lines'])
             ->where('employee_id', $employee->id)
+            ->whereHas('payrollRun', fn ($q) => $q->whereIn('status', PayrollRun::VISIBLE_TO_EMPLOYEE_STATUSES))
             ->findOrFail($id);
 
         return Inertia::render('SelfService/Payslips/Show', [

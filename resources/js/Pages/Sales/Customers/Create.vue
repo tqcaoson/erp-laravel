@@ -28,11 +28,12 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Hạn mức công nợ (₫, 0 = không giới hạn)</label>
-                    <input v-model.number="form.credit_limit" type="number" min="0" step="1000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.credit_limit" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Hạn thanh toán (ngày)</label>
-                    <input v-model.number="form.payment_term_days" type="number" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.payment_term_days" :min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
                 <div class="flex items-end gap-2 pb-2">
                     <input id="is_active" v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-slate-300" />
@@ -58,6 +59,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 const props = defineProps({
     customer: { type: Object, default: null },

@@ -45,12 +45,13 @@
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-medium text-slate-500">Thời gian chuẩn (phút)</label>
-                            <input v-model.number="op.standard_minutes" type="number" min="0" step="0.01" class="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="op.standard_minutes" :decimals="2" :min="0" placeholder="VD: 15" class="w-28 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
                         </div>
                         <button type="button" class="pb-1.5 text-sm text-red-600 hover:underline" :disabled="form.operations.length <= 1" @click="removeOperation(i)">Xóa</button>
                     </div>
                 </div>
                 <p v-if="form.errors.operations" class="mt-1 text-xs text-red-600">{{ form.errors.operations }}</p>
+<p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 <p class="mt-2 text-xs text-slate-500">
                     Thứ tự công đoạn là thứ tự hiển thị ở đây. Thời gian chuẩn dùng để tính
                     phút kế hoạch cho công đoạn khi lệnh sản xuất bắt đầu.
@@ -71,6 +72,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 defineProps({
     products: { type: Array, required: true },

@@ -5,7 +5,11 @@ namespace App\Core\Http\Controllers;
 use App\Core\Models\Role;
 use App\Core\Services\CurrentCompany;
 use App\Models\User;
+use App\Modules\HR\Models\Department;
+use App\Modules\HR\Models\Employee;
+use App\Modules\HR\Models\Position;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -43,6 +47,10 @@ class UserController
     {
         return Inertia::render('Admin/Users/Create', [
             'roles' => Role::orderBy('label')->get(['id', 'name', 'label']),
+            // Phục vụ checkbox "Tạo luôn hồ sơ nhân viên": chỉ phòng ban
+            // đang hoạt động mới chọn được.
+            'departments' => Department::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'positions' => Position::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -55,6 +63,20 @@ class UserController
             'roles' => ['nullable', 'array'],
             'roles.*' => ['integer', 'exists:roles,id'],
             'is_active' => ['nullable', 'boolean'],
+            // Tạo kèm hồ sơ nhân viên (tùy chọn): admin không cần quyền
+            // hr.employee.manage vì đây là 1 thao tác của admin trên form
+            // quản lý tài khoản, không phải thao tác nhân sự.
+            'create_employee' => ['nullable', 'boolean'],
+            // required_if_accepted (không phải required_if:...,true):
+            // checkbox gửi boolean true qua JSON (Inertia) hoặc "1" qua
+            // form — cả hai đều không khớp chuỗi 'true' trong required_if
+            // (so sánh strict với bool, "1" != "true" với chuỗi), nên
+            // required_if sẽ lặng lẽ không bắt buộc phòng ban.
+            'employee.department_id' => ['required_if_accepted:create_employee', 'nullable', 'integer', 'exists:departments,id'],
+            'employee.position_id' => ['nullable', 'integer', 'exists:positions,id'],
+            'employee.phone' => ['nullable', 'string', 'max:30'],
+            'employee.hire_date' => ['nullable', 'date'],
+            'employee.base_salary' => ['nullable', 'numeric', 'min:0'],
         ], [
             'name.required' => 'Tên là bắt buộc.',
             'email.required' => 'Email là bắt buộc.',
@@ -63,26 +85,71 @@ class UserController
             'password.required' => 'Mật khẩu là bắt buộc.',
             'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự.',
             'roles.*.exists' => 'Vai trò đã chọn không tồn tại.',
+            'employee.department_id.required_if_accepted' => 'Phòng ban là bắt buộc khi tạo kèm hồ sơ nhân viên.',
+            'employee.department_id.exists' => 'Phòng ban đã chọn không tồn tại.',
+            'employee.position_id.exists' => 'Chức danh đã chọn không tồn tại.',
+            'employee.hire_date.date' => 'Ngày vào làm không đúng định dạng.',
+            'employee.base_salary.numeric' => 'Lương cơ bản phải là số.',
+            'employee.base_salary.min' => 'Lương cơ bản không được âm.',
         ]);
 
         $companyId = CurrentCompany::id();
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'current_company_id' => $companyId,
-            'is_active' => $validated['is_active'] ?? true,
-        ]);
+        // Transaction: tạo tài khoản + hồ sơ nhân viên là 1 thao tác —
+        // hồ sơ lỗi thì tài khoản cũng không được tạo (tránh tài khoản
+        // "mồ côi" không gắn hồ sơ dù admin đã tick tạo kèm).
+        [$user, $employee] = DB::transaction(function () use ($validated, $companyId) {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'current_company_id' => $companyId,
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
 
-        $user->roles()->sync($validated['roles'] ?? []);
+            $user->roles()->sync($validated['roles'] ?? []);
 
-        if ($companyId) {
-            $user->companies()->syncWithoutDetaching([$companyId]);
+            if ($companyId) {
+                $user->companies()->syncWithoutDetaching([$companyId]);
+            }
+
+            $employee = null;
+
+            if (! empty($validated['create_employee'])) {
+                $data = $validated['employee'] ?? [];
+
+                // Cột code bắt buộc nên tạo tạm bằng mã duy nhất, rồi gán
+                // mã chính thức NV-0001... sau khi đã có id.
+                $employee = Employee::create([
+                    'company_id' => $companyId,
+                    'code' => 'TMP-'.uniqid(),
+                    'full_name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'phone' => $data['phone'] ?? null,
+                    'department_id' => $data['department_id'],
+                    'position_id' => $data['position_id'] ?? null,
+                    'user_id' => $user->id,
+                    'hire_date' => $data['hire_date'] ?? null,
+                    'status' => Employee::STATUS_ACTIVE,
+                    // Lương cơ bản không bắt buộc — để 0 nếu chưa biết,
+                    // nhân sự cập nhật sau (bảng lương bằng 0 tới lúc đó).
+                    'base_salary' => $data['base_salary'] ?? 0,
+                ]);
+
+                Employee::assignCode($employee);
+            }
+
+            return [$user, $employee];
+        });
+
+        $message = "Đã tạo tài khoản {$user->email}.";
+
+        if ($employee) {
+            $message = "Đã tạo tài khoản {$user->email} và hồ sơ nhân viên {$employee->code}.";
         }
 
         return redirect()->route('admin.users.index')
-            ->with('success', "Đã tạo tài khoản {$user->email}.");
+            ->with('success', $message);
     }
 
     public function edit(User $user)

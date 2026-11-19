@@ -79,7 +79,7 @@ class PayrollRunController extends Controller
         return back()->with('success', "Đã đưa kỳ lương {$payrollRun->period} vào hàng đợi tính lương.");
     }
 
-    /** Khóa kỳ lương (không sửa được nữa, phát event cho Kế toán). */
+    /** Khóa kỳ lương (không sửa được nữa; bút toán chỉ sinh khi duyệt). */
     public function lock(PayrollRun $payrollRun)
     {
         try {
@@ -89,5 +89,29 @@ class PayrollRunController extends Controller
         }
 
         return back()->with('success', "Đã khóa kỳ lương {$payrollRun->period}.");
+    }
+
+    /** Duyệt kỳ lương đã khóa (phát event cho Kế toán sinh bút toán lương). */
+    public function approve(PayrollRun $payrollRun)
+    {
+        try {
+            $this->payrollService->approve($payrollRun);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "Đã duyệt kỳ lương {$payrollRun->period}. Bút toán lương đã được gửi sang module Kế toán.");
+    }
+
+    /** Đánh dấu kỳ lương đã duyệt là đã trả cho nhân viên. */
+    public function pay(PayrollRun $payrollRun)
+    {
+        try {
+            $this->payrollService->pay($payrollRun);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "Đã đánh dấu trả lương kỳ {$payrollRun->period}.");
     }
 }

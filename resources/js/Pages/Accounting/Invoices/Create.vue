@@ -46,13 +46,16 @@
                             <p v-if="form.errors[`lines.${index}.description`]" class="mt-1 text-xs text-red-600">{{ form.errors[`lines.${index}.description`] }}</p>
                         </div>
                         <div class="col-span-2">
-                            <input v-model.number="line.qty" type="number" min="0" step="0.0001" placeholder="SL" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="line.qty" :decimals="4" :min="0.0001" placeholder="SL" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <p v-if="form.errors[`lines.${index}.qty`]" class="mt-1 text-xs text-red-600">{{ form.errors[`lines.${index}.qty`] }}</p>
                         </div>
                         <div class="col-span-2">
-                            <input v-model.number="line.unit_price" type="number" min="0" step="0.01" placeholder="Đơn giá" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="line.unit_price" :min="0" placeholder="Đơn giá" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <p v-if="form.errors[`lines.${index}.unit_price`]" class="mt-1 text-xs text-red-600">{{ form.errors[`lines.${index}.unit_price`] }}</p>
                         </div>
                         <div class="col-span-2">
-                            <input v-model.number="line.tax_rate" type="number" min="0" max="100" step="0.01" placeholder="Thuế %" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="line.tax_rate" :decimals="2" :min="0" :max="100" placeholder="Thuế %" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <p v-if="form.errors[`lines.${index}.tax_rate`]" class="mt-1 text-xs text-red-600">{{ form.errors[`lines.${index}.tax_rate`] }}</p>
                         </div>
                         <div class="col-span-1 pt-1 text-right">
                             <button type="button" @click="removeLine(index)" :disabled="form.lines.length <= 1" class="text-sm text-red-600 hover:underline disabled:opacity-40">
@@ -62,6 +65,7 @@
                     </div>
                 </div>
                 <p v-if="form.errors.lines" class="mt-1 text-sm text-red-600">{{ form.errors.lines }}</p>
+                <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn (VD: 20.000 = 20000). Số lượng tối thiểu 0.0001.</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-6 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -83,6 +87,7 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { useFormat } from '../../../composables/useFormat';
 
 const format = useFormat();

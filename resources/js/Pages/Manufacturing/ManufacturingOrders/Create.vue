@@ -14,8 +14,9 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Số lượng *</label>
-                    <input v-model.number="form.qty" type="number" min="0.0001" step="0.01" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.qty" :decimals="4" :min="0.0001" required placeholder="VD: 10" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                     <p v-if="form.errors.qty" class="mt-1 text-xs text-red-600">{{ form.errors.qty }}</p>
+<p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Kho *</label>
@@ -74,6 +75,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { computed } from 'vue';
 
 const props = defineProps({

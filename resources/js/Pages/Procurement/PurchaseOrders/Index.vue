@@ -26,6 +26,7 @@
         </form>
         <DataTable :columns="columns" :items="orders" empty-text="Chưa có đơn mua hàng nào.">
             <template #cell-supplier="{ row }">{{ row.supplier?.name ?? '—' }}</template>
+            <template #cell-progress="{ row }">{{ number(totalReceived(row)) }}/{{ number(totalOrdered(row)) }}</template>
             <template #cell-order_date="{ value }">{{ date(value) }}</template>
             <template #cell-total_amount="{ value }">{{ money(value) }}</template>
             <template #cell-status="{ value }"><StatusBadge :status="value" /></template>
@@ -50,16 +51,26 @@ const props = defineProps({
     filters: { type: Object, default: () => ({}) },
 });
 
-const { money, date } = useFormat();
+const { money, number, date } = useFormat();
 const { can } = usePermission();
 
 const columns = [
     { key: 'code', label: 'Mã đơn', sortable: true },
     { key: 'supplier', label: 'Nhà cung cấp' },
+    { key: 'progress', label: 'Tiến độ nhận' },
     { key: 'order_date', label: 'Ngày đặt', sortable: true },
     { key: 'total_amount', label: 'Tổng tiền', sortable: true },
     { key: 'status', label: 'Trạng thái' },
 ];
+
+/** Tổng số lượng đặt / đã nhận của đơn (cộng dồn các dòng). */
+function totalOrdered(order) {
+    return (order.lines ?? []).reduce((sum, l) => sum + Number(l.qty || 0), 0);
+}
+
+function totalReceived(order) {
+    return (order.lines ?? []).reduce((sum, l) => sum + Number(l.received_qty || 0), 0);
+}
 
 const form = reactive({
     search: props.filters.search ?? '',

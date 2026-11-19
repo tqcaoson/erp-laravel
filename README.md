@@ -111,8 +111,10 @@ Mật khẩu tất cả các tài khoản đều là **`password`**.
 | `admin@erp.local` | Quản trị hệ thống (toàn quyền) |
 | `giamdoc@erp.local` | Giám đốc (xem tất cả + duyệt) |
 | `ketoan@erp.local` | Kế toán |
+| `sanxuat@erp.local` | Sản xuất |
 | `kho@erp.local` | Thủ kho |
 | `banhang@erp.local` | Nhân viên bán hàng |
+| `muahang@erp.local` | Nhân viên mua hàng |
 | `nhansu@erp.local` | Nhân sự |
 
 Công ty demo: **Công ty TNHH XT Mechanical** (VND) — đã có sẵn 2 kho

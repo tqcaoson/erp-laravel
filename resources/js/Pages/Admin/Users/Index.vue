@@ -5,7 +5,7 @@
                 <h1 class="text-2xl font-bold text-slate-900">Người dùng</h1>
                 <p class="mt-1 text-sm text-slate-500">Tài khoản đăng nhập hệ thống, vai trò và trạng thái hoạt động.</p>
             </div>
-            <Link :href="route('admin.users.create')" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            <Link v-if="can('core.user.manage')" :href="route('admin.users.create')" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
                 + Thêm người dùng
             </Link>
         </div>
@@ -38,16 +38,16 @@
             </template>
             <template #actions="{ row }">
                 <div class="flex items-center justify-end gap-2">
-                    <Link :href="route('admin.users.edit', row.id)" class="font-medium text-blue-600 hover:underline">Sửa</Link>
+                    <Link v-if="can('core.user.manage')" :href="route('admin.users.edit', row.id)" class="font-medium text-blue-600 hover:underline">Sửa</Link>
                     <button
-                        v-if="row.id !== currentUserId"
+                        v-if="can('core.user.manage') && row.id !== currentUserId"
                         @click="toggleActive(row)"
                         class="font-medium text-amber-600 hover:underline"
                     >
                         {{ row.is_active ? 'Vô hiệu' : 'Kích hoạt' }}
                     </button>
                     <button
-                        v-if="row.id !== currentUserId"
+                        v-if="can('core.user.manage') && row.id !== currentUserId"
                         @click="destroy(row)"
                         class="font-medium text-red-600 hover:underline"
                     >
@@ -64,6 +64,7 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, reactive } from 'vue';
 import DataTable from '../../../Components/DataTable.vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
+import { usePermission } from '../../../composables/usePermission.js';
 
 const props = defineProps({
     users: { type: Object, required: true },
@@ -72,6 +73,10 @@ const props = defineProps({
 
 const page = usePage();
 const currentUserId = computed(() => page.props.auth?.user?.id);
+// Trang này chỉ cần core.user.view để xem, nhưng mọi thao tác (thêm/sửa/
+// vô hiệu/xóa) đều cần core.user.manage — giám đốc xem được danh sách
+// nhưng không thấy nút thao tác, tránh bấm vào rồi mới bị 403.
+const { can } = usePermission();
 
 const columns = [
     { key: 'name', label: 'Tên' },

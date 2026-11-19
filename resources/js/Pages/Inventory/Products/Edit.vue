@@ -34,18 +34,19 @@
             <div class="grid grid-cols-3 gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Giá bán</label>
-                    <input v-model.number="form.sale_price" type="number" min="0" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.sale_price" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Giá vốn bình quân</label>
-                    <input v-model.number="form.average_cost" type="number" min="0" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.average_cost" :decimals="4" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                     <p class="mt-1 text-xs text-slate-400">Giá vốn tự cập nhật khi nhập kho; chỉ sửa tay khi cần điều chỉnh.</p>
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Tồn tối thiểu</label>
-                    <input v-model.number="form.reorder_min" type="number" min="0" step="0.0001" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.reorder_min" :decimals="4" :min="0" placeholder="VD: 10" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
             </div>
+            <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-700">Mô tả</label>
                 <textarea v-model="form.description" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"></textarea>
@@ -65,6 +66,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 const props = defineProps({
     product: { type: Object, required: true },

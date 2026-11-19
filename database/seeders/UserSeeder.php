@@ -26,6 +26,8 @@ class UserSeeder extends Seeder
             ['Lê Thị Hoa', 'banhang@erp.local', 'ban_hang'],
             ['Đỗ Thị Mai', 'nhansu@erp.local', 'nhan_su'],
             ['Trần Văn Nhân', 'nhanvien@erp.local', 'nhan_vien'],
+            ['Hoàng Văn Phúc', 'muahang@erp.local', 'mua_hang'],
+            ['Vũ Thị Hằng', 'sanxuat@erp.local', 'san_xuat'],
         ];
 
         foreach ($users as [$name, $email, $roleName]) {

@@ -18,7 +18,7 @@
                 </div>
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Phiên bản</label>
-                    <input v-model.number="form.version" type="number" min="1" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.version" :min="1" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
             </div>
 
@@ -40,7 +40,7 @@
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-medium text-slate-500">Số lượng</label>
-                            <input v-model.number="line.qty" type="number" min="0.0001" step="0.01" required class="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="line.qty" :decimals="4" :min="0.0001" required placeholder="VD: 10" class="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-medium text-slate-500">Đơn vị</label>
@@ -51,12 +51,13 @@
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-medium text-slate-500">Hao hụt %</label>
-                            <input v-model.number="line.scrap_rate" type="number" min="0" max="100" step="0.01" class="w-20 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="line.scrap_rate" :decimals="2" :min="0" :max="100" placeholder="0" class="w-20 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
                         </div>
                         <button type="button" class="pb-1.5 text-sm text-red-600 hover:underline" :disabled="form.lines.length <= 1" @click="removeLine(i)">Xóa</button>
                     </div>
                 </div>
                 <p v-if="form.errors.lines" class="mt-1 text-xs text-red-600">{{ form.errors.lines }}</p>
+<p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                 <p class="mt-2 text-xs text-slate-500">
                     Nguyên liệu là bán thành phẩm có BOM riêng sẽ được triển khai đệ quy khi kiểm tra tồn.
                 </p>
@@ -76,6 +77,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 defineProps({
     products: { type: Array, required: true },

@@ -35,10 +35,10 @@
                             <p v-if="form.errors[`lines.${index}.account_id`]" class="mt-1 text-xs text-red-600">{{ form.errors[`lines.${index}.account_id`] }}</p>
                         </div>
                         <div class="col-span-3">
-                            <input v-model.number="line.debit" type="number" min="0" step="0.01" placeholder="Nợ" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="line.debit" :min="0" placeholder="Nợ" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                         </div>
                         <div class="col-span-3">
-                            <input v-model.number="line.credit" type="number" min="0" step="0.01" placeholder="Có" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="line.credit" :min="0" placeholder="Có" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                         </div>
                         <div class="col-span-1 pt-1 text-right">
                             <button type="button" @click="removeLine(index)" :disabled="form.lines.length <= 2" class="text-sm text-red-600 hover:underline disabled:opacity-40">
@@ -49,6 +49,7 @@
                     </div>
                 </div>
                 <p v-if="form.errors.lines" class="mt-1 text-sm text-red-600">{{ form.errors.lines }}</p>
+<p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
             </div>
 
             <!-- Tổng Nợ/Có + cảnh báo mất cân bằng -->
@@ -71,6 +72,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { computed } from 'vue';
 import { useFormat } from '../../../composables/useFormat';
 

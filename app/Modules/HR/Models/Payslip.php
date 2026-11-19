@@ -11,6 +11,7 @@ class Payslip extends BaseModel
         'company_id', 'payroll_run_id', 'employee_id',
         'base_salary', 'allowances', 'deductions',
         'insurance_employee', 'tax', 'net_salary', 'status',
+        'standard_working_days', 'worked_days', 'unpaid_leave_days',
     ];
 
     protected $casts = [
@@ -20,6 +21,9 @@ class Payslip extends BaseModel
         'insurance_employee' => 'decimal:2',
         'tax' => 'decimal:2',
         'net_salary' => 'decimal:2',
+        'standard_working_days' => 'decimal:2',
+        'worked_days' => 'decimal:2',
+        'unpaid_leave_days' => 'decimal:2',
     ];
 
     public function payrollRun()

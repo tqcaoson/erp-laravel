@@ -156,7 +156,10 @@ const allNavGroups = [
         label: 'Nghiệp vụ',
         items: [
             { label: 'Kế toán', icon: '💰', href: '/accounting/journal-entries', permission: 'accounting.entry.view' },
-            { label: 'Mua hàng', icon: '🛒', href: '/procurement/purchase-orders', permission: 'procurement.po.view' },
+            { label: 'Yêu cầu mua', icon: '📝', href: '/procurement/purchase-requests', permission: 'procurement.pr.view' },
+            { label: 'Báo giá NCC (RFQ)', icon: '💬', href: '/procurement/rfqs', permission: 'procurement.rfq.view' },
+            { label: 'Đơn mua hàng', icon: '🛒', href: '/procurement/purchase-orders', permission: 'procurement.po.view' },
+            { label: 'Phiếu nhận hàng', icon: '📥', href: '/procurement/goods-receipts', permission: 'procurement.gr.view' },
             { label: 'Bán hàng', icon: '🤝', href: '/sales/orders', permission: 'sales.order.view' },
             { label: 'Nhân sự', icon: '👥', href: '/hr/employees', permission: 'hr.employee.view' },
             { label: 'Bảng lương', icon: '💵', href: '/hr/payroll-runs', permission: 'hr.payroll.view' },

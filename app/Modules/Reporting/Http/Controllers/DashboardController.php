@@ -31,13 +31,14 @@ class DashboardController extends Controller
             return Inertia::render('Dashboard', [
                 'kpi' => [
                     'revenue_this_month' => 0, 'orders_this_month' => 0,
-                    'stock_value' => 0, 'receivables' => 0,
+                    'stock_value' => 0, 'receivables' => 0, 'payables' => 0,
                     'active_employees' => 0, 'pending_leave_requests' => 0,
                 ],
                 'alerts' => [
                     'low_stock' => [], 'low_stock_total' => 0,
                     'overdue_invoices' => [], 'overdue_invoices_total' => 0,
                     'expiring_contracts' => [], 'expiring_contracts_total' => 0,
+                    'pending_goods_receipts' => [], 'pending_goods_receipts_total' => 0,
                 ],
                 'monthlyRevenue' => [],
             ]);
@@ -61,9 +62,13 @@ class DashboardController extends Controller
             $alerts['low_stock_total'] = 0;
         }
         if (! $user->hasPermission('accounting.invoice.view')) {
-            unset($kpi['receivables']);
+            unset($kpi['receivables'], $kpi['payables']);
             $alerts['overdue_invoices'] = [];
             $alerts['overdue_invoices_total'] = 0;
+        }
+        if (! $user->hasPermission('procurement.gr.validate')) {
+            $alerts['pending_goods_receipts'] = [];
+            $alerts['pending_goods_receipts_total'] = 0;
         }
         if (! $user->hasPermission('hr.employee.view')) {
             unset($kpi['active_employees']);

@@ -22,6 +22,8 @@ class StoreEmployeeRequest extends FormRequest
             'position_id' => ['nullable', 'exists:positions,id'],
             'user_id' => ['nullable', 'exists:users,id'],
             'hire_date' => ['nullable', 'date'],
+            'termination_date' => ['nullable', 'date'],
+            'dependents_count' => ['nullable', 'integer', 'min:0'],
             'status' => ['nullable', 'in:active,on_leave,resigned'],
             'base_salary' => ['nullable', 'numeric', 'min:0'],
         ];
@@ -35,6 +37,7 @@ class StoreEmployeeRequest extends FormRequest
             'department_id.exists' => 'Phòng ban không tồn tại.',
             'position_id.exists' => 'Chức danh không tồn tại.',
             'base_salary.min' => 'Lương cơ bản không được âm.',
+            'dependents_count.min' => 'Số người phụ thuộc không được âm.',
         ];
     }
 }

@@ -128,6 +128,105 @@ class ReportService
     }
 
     /**
+     * Công nợ phải trả theo nhà cung cấp — đọc trực tiếp từ sổ cái.
+     *
+     * Số dư = SUM(Có − Nợ) của các dòng bút toán đã ghi sổ trên tài khoản
+     * 331/3311, nhóm theo nhà cung cấp (partner_type='supplier').
+     * journal_entry_lines KHÔNG có company_id nên phải join qua
+     * journal_entries để lọc công ty. Tuổi nợ tính theo ngày phát sinh
+     * bút toán (entry_date), chia nhóm 0–30 / 31–60 / 61–90 / trên 90 ngày.
+     *
+     * @return array<int, array{supplier_id: int|null, supplier_code: string|null, supplier_name: string, balance: float, buckets: array<string, float>}>
+     */
+    public function payablesBySupplier(int $companyId): array
+    {
+        return $this->ledgerBalancesBySupplier($companyId, ['331', '3311']);
+    }
+
+    /**
+     * Hàng đã nhận nhưng chưa có hóa đơn (TK 335) theo nhà cung cấp.
+     *
+     * Phiếu nhận đã xác nhận ghi Nợ 156 / Có 335; khi hóa đơn mua từ
+     * phiếu nhận được ghi sổ thì 335 được kết chuyển sang 331. Mục này
+     * cho thấy phần hàng đã về kho mà kế toán chưa lập hóa đơn mua.
+     *
+     * @return array<int, array{supplier_id: int|null, supplier_code: string|null, supplier_name: string, balance: float, buckets: array<string, float>}>
+     */
+    public function goodsReceivedNotInvoiced(int $companyId): array
+    {
+        return $this->ledgerBalancesBySupplier($companyId, ['335']);
+    }
+
+    /**
+     * Số dư sổ cái theo nhà cung cấp cho một nhóm tài khoản.
+     */
+    private function ledgerBalancesBySupplier(int $companyId, array $codes): array
+    {
+        if (! Schema::hasTable('journal_entry_lines')
+            || ! Schema::hasTable('journal_entries')
+            || ! Schema::hasTable('chart_of_accounts')) {
+            return [];
+        }
+
+        $bucketKeys = ['0-30', '31-60', '61-90', '90+'];
+
+        $query = DB::table('journal_entry_lines')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
+            ->join('chart_of_accounts', 'chart_of_accounts.id', '=', 'journal_entry_lines.account_id')
+            ->where('journal_entries.company_id', $companyId)
+            ->where('journal_entries.status', 'posted')
+            ->whereIn('chart_of_accounts.code', $codes)
+            ->where('journal_entry_lines.partner_type', 'supplier');
+
+        $hasSuppliers = Schema::hasTable('suppliers');
+        if ($hasSuppliers) {
+            $query->leftJoin('suppliers', 'suppliers.id', '=', 'journal_entry_lines.partner_id');
+        }
+
+        $rows = $query->select([
+            'journal_entry_lines.partner_id',
+            'journal_entry_lines.debit',
+            'journal_entry_lines.credit',
+            'journal_entries.entry_date',
+            ...($hasSuppliers ? ['suppliers.code as supplier_code', 'suppliers.name as supplier_name'] : []),
+        ])->orderBy('journal_entries.entry_date')->get();
+
+        $today = now()->startOfDay();
+        $bySupplier = [];
+
+        foreach ($rows as $row) {
+            $key = (int) $row->partner_id;
+            $amount = (float) $row->credit - (float) $row->debit;
+
+            if (! isset($bySupplier[$key])) {
+                $bySupplier[$key] = [
+                    'supplier_id' => $key,
+                    'supplier_code' => $row->supplier_code ?? null,
+                    'supplier_name' => $row->supplier_name ?? ('Nhà cung cấp #'.$key),
+                    'balance' => 0.0,
+                    'buckets' => array_fill_keys($bucketKeys, 0.0),
+                ];
+            }
+
+            $days = (int) \Carbon\Carbon::parse($row->entry_date)->startOfDay()->diffInDays($today);
+            $bucket = $days <= 30 ? '0-30' : ($days <= 60 ? '31-60' : ($days <= 90 ? '61-90' : '90+'));
+
+            $bySupplier[$key]['balance'] += $amount;
+            $bySupplier[$key]['buckets'][$bucket] += $amount;
+        }
+
+        // Chỉ hiển thị nhà cung cấp còn số dư (bỏ qua các NCC đã thanh toán hết).
+        $result = array_values(array_filter(
+            $bySupplier,
+            fn ($row) => abs($row['balance']) >= 0.01,
+        ));
+
+        usort($result, fn ($a, $b) => $b['balance'] <=> $a['balance']);
+
+        return $result;
+    }
+
+    /**
      * Báo cáo xuất nhập tồn theo khoảng thời gian.
      * Ưu tiên daily_stock_summary; nếu trống thì tổng hợp từ stock_moves.
      */

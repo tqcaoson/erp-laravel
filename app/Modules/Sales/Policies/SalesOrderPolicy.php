@@ -37,7 +37,11 @@ class SalesOrderPolicy
 
     public function approve(User $user, SalesOrder $order): bool
     {
-        return $user->hasPermission('sales.order.approve') && $order->status === 'pending_approval';
+        // Maker-checker: người tạo đơn không được duyệt đơn của chính mình
+        // (đơn không có người tạo — created_by null — thì không chặn).
+        return $user->hasPermission('sales.order.approve')
+            && $order->status === 'pending_approval'
+            && ($order->created_by === null || (int) $order->created_by !== (int) $user->id);
     }
 
     public function cancel(User $user, SalesOrder $order): bool

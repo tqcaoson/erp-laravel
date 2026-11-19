@@ -83,16 +83,18 @@
                                     {{ availableOf(line) === null ? '—' : number(availableOf(line), 2) }}
                                 </td>
                                 <td class="px-3 py-2 text-right">
-                                    <input v-model.number="line.qty" type="number" min="0.0001" step="0.01" required class="w-20 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
+                                    <NumberInput v-model="line.qty" :decimals="4" :min="0.0001" required placeholder="VD: 10" class="w-20 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
+                                    <p v-if="form.errors[`lines.${i}.qty`]" class="mt-1 text-left text-xs text-red-600">{{ form.errors[`lines.${i}.qty`] }}</p>
                                 </td>
                                 <td class="px-3 py-2 text-right">
-                                    <input v-model.number="line.unit_price" type="number" min="0" step="1000" required class="w-28 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
+                                    <NumberInput v-model="line.unit_price" :min="0" required placeholder="VD: 20000" class="w-28 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
+                                    <p v-if="form.errors[`lines.${i}.unit_price`]" class="mt-1 text-left text-xs text-red-600">{{ form.errors[`lines.${i}.unit_price`] }}</p>
                                 </td>
                                 <td class="px-3 py-2 text-right">
-                                    <input v-model.number="line.discount_rate" type="number" min="0" max="100" step="0.01" class="w-16 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
+                                    <NumberInput v-model="line.discount_rate" :decimals="2" :min="0" :max="100" placeholder="0" class="w-16 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
                                 </td>
                                 <td class="px-3 py-2 text-right">
-                                    <input v-model.number="line.tax_rate" type="number" min="0" max="100" step="0.01" class="w-16 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
+                                    <NumberInput v-model="line.tax_rate" :decimals="2" :min="0" :max="100" placeholder="0" class="w-16 rounded border border-slate-300 px-2 py-1.5 text-right focus:border-blue-500 focus:outline-none" />
                                 </td>
                                 <td class="px-3 py-2 text-right font-medium">{{ money(lineTotal(line)) }}</td>
                                 <td class="px-3 py-2 text-right">
@@ -105,12 +107,13 @@
                     </table>
                 </div>
                 <p v-if="form.errors.lines" class="mt-1 text-xs text-red-600">{{ form.errors.lines }}</p>
+                <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn (VD: 20.000 = 20000). Số lượng tối thiểu 0.0001.</p>
             </div>
 
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Chiết khấu đơn hàng (₫)</label>
-                    <input v-model.number="form.discount_amount" type="number" min="0" step="1000" class="w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.discount_amount" :min="0" placeholder="VD: 20000" class="w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                     <label class="mt-3 mb-1 block text-sm font-medium text-slate-700">Ghi chú</label>
                     <input v-model="form.note" type="text" class="w-72 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                 </div>
@@ -138,6 +141,7 @@
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useFormat } from '../../../composables/useFormat';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 const props = defineProps({
     customers: { type: Array, required: true },

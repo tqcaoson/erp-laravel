@@ -19,6 +19,7 @@ Route::middleware(['web', 'auth'])->prefix('manufacturing')->name('manufacturing
     Route::post('/orders/{order}/confirm', [ManufacturingOrderController::class, 'confirm'])->middleware('permission:manufacturing.mo.create')->name('orders.confirm');
     Route::post('/orders/{order}/start', [ManufacturingOrderController::class, 'start'])->middleware('permission:manufacturing.mo.start')->name('orders.start');
     Route::post('/orders/{order}/complete', [ManufacturingOrderController::class, 'complete'])->middleware('permission:manufacturing.mo.complete')->name('orders.complete');
+    Route::post('/orders/{order}/log-progress', [ManufacturingOrderController::class, 'logProgress'])->middleware('permission:manufacturing.mo.complete')->name('orders.log-progress');
     Route::post('/orders/{order}/cancel', [ManufacturingOrderController::class, 'cancel'])->middleware('permission:manufacturing.mo.create')->name('orders.cancel');
 
     // Định mức BOM

@@ -35,6 +35,12 @@ class ReportController extends Controller
                     'url' => route('reports.aging'),
                 ],
                 [
+                    'key' => 'payables-by-supplier',
+                    'name' => 'Công nợ phải trả theo nhà cung cấp',
+                    'description' => 'Số dư phải trả từ sổ cái tài khoản 331, chia nhóm tuổi nợ theo ngày phát sinh bút toán.',
+                    'url' => route('reports.payables-by-supplier'),
+                ],
+                [
                     'key' => 'stock-movement',
                     'name' => 'Xuất nhập tồn',
                     'description' => 'Tồn đầu kỳ, nhập, xuất, tồn cuối kỳ theo sản phẩm (từ bảng tổng hợp theo ngày).',
@@ -97,6 +103,48 @@ class ReportController extends Controller
             'buckets' => $buckets,
             'totalAmount' => array_sum(array_column($buckets, 'amount')),
             'totalCount' => array_sum(array_column($buckets, 'count')),
+        ]);
+    }
+
+    /** Công nợ phải trả theo nhà cung cấp (từ sổ cái 331) + hàng về chưa có hóa đơn (335). */
+    public function payablesBySupplier(Request $request)
+    {
+        $companyId = CurrentCompany::id() ?? 0;
+        $rows = $this->reports->payablesBySupplier($companyId);
+        $pendingRows = $this->reports->goodsReceivedNotInvoiced($companyId);
+
+        $toCsvRow = fn ($r) => [
+            $r['supplier_code'], $r['supplier_name'], $r['balance'],
+            $r['buckets']['0-30'], $r['buckets']['31-60'], $r['buckets']['61-90'], $r['buckets']['90+'],
+        ];
+
+        if ($request->input('export') === 'csv') {
+            $csvRows = array_map($toCsvRow, $rows);
+            $csvRows[] = [];
+            $csvRows[] = ['Hàng đã nhận, chưa có hóa đơn (TK 335)'];
+            $csvRows[] = ['Mã nhà cung cấp', 'Tên nhà cung cấp', 'Tổng chưa có hóa đơn (VND)', '0–30 ngày', '31–60 ngày', '61–90 ngày', 'Trên 90 ngày'];
+            foreach ($pendingRows as $r) {
+                $csvRows[] = $toCsvRow($r);
+            }
+
+            return $this->downloadCsv(
+                'cong-no-phai-tra-'.now()->format('Y-m-d').'.csv',
+                ['Mã nhà cung cấp', 'Tên nhà cung cấp', 'Tổng phải trả (VND)', '0–30 ngày', '31–60 ngày', '61–90 ngày', 'Trên 90 ngày'],
+                $csvRows,
+            );
+        }
+
+        return Inertia::render('Reporting/PayablesBySupplier', [
+            'rows' => $rows,
+            'totalBalance' => array_sum(array_column($rows, 'balance')),
+            'bucketTotals' => [
+                '0-30' => array_sum(array_column(array_column($rows, 'buckets'), '0-30')),
+                '31-60' => array_sum(array_column(array_column($rows, 'buckets'), '31-60')),
+                '61-90' => array_sum(array_column(array_column($rows, 'buckets'), '61-90')),
+                '90+' => array_sum(array_column(array_column($rows, 'buckets'), '90+')),
+            ],
+            'pendingRows' => $pendingRows,
+            'pendingTotal' => array_sum(array_column($pendingRows, 'balance')),
         ]);
     }
 

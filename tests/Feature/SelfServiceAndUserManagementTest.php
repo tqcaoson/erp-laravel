@@ -61,9 +61,11 @@ class SelfServiceAndUserManagementTest extends TestCase
 
     protected function createPayslip(Employee $employee, string $period = '2026-11'): Payslip
     {
+        // Kỳ đã khóa: nhân viên chỉ xem được phiếu lương của kỳ
+        // locked/approved/paid (quy tắc mới đợt 2, 20/11/2026).
         $run = PayrollRun::firstOrCreate(
             ['company_id' => $this->company->id, 'period' => $period],
-            ['code' => 'BL-'.$period, 'status' => PayrollRun::STATUS_CALCULATED],
+            ['code' => 'BL-'.$period, 'status' => PayrollRun::STATUS_LOCKED],
         );
 
         return Payslip::create([

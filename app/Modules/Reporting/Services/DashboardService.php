@@ -46,6 +46,7 @@ class DashboardService
                 'orders_this_month' => $this->ordersThisMonth($companyId),
                 'stock_value' => $this->stockValue($companyId),
                 'receivables' => $this->receivables($companyId),
+                'payables' => $this->payables($companyId),
                 'active_employees' => $this->activeEmployees($companyId),
                 'pending_leave_requests' => $this->pendingLeaveRequests($companyId),
             ];
@@ -120,19 +121,51 @@ class DashboardService
         }
     }
 
-    /** Công nợ phải thu = tổng hóa đơn bán đã ghi sổ (chưa thanh toán hết). */
+    /**
+     * Công nợ phải thu = số dư Nợ tài khoản 131 trên sổ cái.
+     * Đọc từ sổ cái (không cộng tổng hóa đơn) để đã trừ tiền khách đã
+     * trả — khớp với báo cáo công nợ tuổi nợ.
+     */
     protected function receivables(int $companyId): float
     {
         try {
-            if (! Schema::hasTable('invoices')) {
+            if (! Schema::hasTable('journal_entry_lines') || ! Schema::hasTable('journal_entries') || ! Schema::hasTable('chart_of_accounts')) {
                 return 0.0;
             }
 
-            return (float) DB::table('invoices')
-                ->where('company_id', $companyId)
-                ->where('type', 'sale')
-                ->where('status', 'posted')
-                ->sum('total_amount');
+            return (float) DB::table('journal_entry_lines')
+                ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
+                ->join('chart_of_accounts', 'chart_of_accounts.id', '=', 'journal_entry_lines.account_id')
+                ->where('journal_entries.company_id', $companyId)
+                ->where('journal_entries.status', 'posted')
+                ->whereIn('chart_of_accounts.code', ['131', '1311'])
+                ->where('journal_entry_lines.partner_type', 'customer')
+                ->sum(DB::raw('journal_entry_lines.debit - journal_entry_lines.credit'));
+        } catch (\Throwable) {
+            return 0.0;
+        }
+    }
+
+    /**
+     * Công nợ phải trả = số dư Có tài khoản 331 trên sổ cái.
+     * Đọc từ sổ cái (không cộng tổng hóa đơn) để đã trừ tiền đã trả NCC
+     * — khớp với báo cáo công nợ phải trả theo nhà cung cấp.
+     */
+    protected function payables(int $companyId): float
+    {
+        try {
+            if (! Schema::hasTable('journal_entry_lines') || ! Schema::hasTable('journal_entries') || ! Schema::hasTable('chart_of_accounts')) {
+                return 0.0;
+            }
+
+            return (float) DB::table('journal_entry_lines')
+                ->join('journal_entries', 'journal_entries.id', '=', 'journal_entry_lines.journal_entry_id')
+                ->join('chart_of_accounts', 'chart_of_accounts.id', '=', 'journal_entry_lines.account_id')
+                ->where('journal_entries.company_id', $companyId)
+                ->where('journal_entries.status', 'posted')
+                ->whereIn('chart_of_accounts.code', ['331', '3311'])
+                ->where('journal_entry_lines.partner_type', 'supplier')
+                ->sum(DB::raw('journal_entry_lines.credit - journal_entry_lines.debit'));
         } catch (\Throwable) {
             return 0.0;
         }
@@ -172,7 +205,8 @@ class DashboardService
     }
 
     /**
-     * Cảnh báo: tồn dưới mức tối thiểu (top 5), hóa đơn quá hạn, hợp đồng sắp hết hạn.
+     * Cảnh báo: tồn dưới mức tối thiểu (top 5), hóa đơn quá hạn, hợp đồng sắp hết hạn,
+     * phiếu nhận hàng chờ xác nhận (top 5).
      * Mỗi loại kèm tổng số mục (để giao diện hiển thị "Đang hiển thị 5 / N mục").
      */
     public function alerts(int $companyId): array
@@ -184,6 +218,8 @@ class DashboardService
             'overdue_invoices_total' => $this->overdueInvoicesTotal($companyId),
             'expiring_contracts' => $this->expiringContracts($companyId),
             'expiring_contracts_total' => $this->expiringContractsTotal($companyId),
+            'pending_goods_receipts' => $this->pendingGoodsReceipts($companyId),
+            'pending_goods_receipts_total' => $this->pendingGoodsReceiptsTotal($companyId),
         ];
     }
 
@@ -352,6 +388,65 @@ class DashboardService
             }
 
             return (int) $this->expiringContractsQuery($companyId)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /** Query gốc: phiếu nhận hàng đang ở trạng thái nháp (chờ xác nhận). */
+    protected function pendingGoodsReceiptsQuery(int $companyId)
+    {
+        return DB::table('goods_receipts')
+            ->where('goods_receipts.company_id', $companyId)
+            ->where('goods_receipts.status', 'draft');
+    }
+
+    protected function pendingGoodsReceipts(int $companyId): array
+    {
+        try {
+            if (! Schema::hasTable('goods_receipts')) {
+                return [];
+            }
+
+            $query = $this->pendingGoodsReceiptsQuery($companyId);
+
+            // Tên nhà cung cấp chỉ join khi bảng suppliers tồn tại.
+            $withSupplier = Schema::hasTable('suppliers');
+            if ($withSupplier) {
+                $query->leftJoin('suppliers', 'suppliers.id', '=', 'goods_receipts.supplier_id');
+            }
+
+            $select = ['goods_receipts.id', 'goods_receipts.code', 'goods_receipts.supplier_id', 'goods_receipts.receipt_date'];
+            if ($withSupplier) {
+                $select[] = 'suppliers.name as supplier_name';
+            }
+
+            return $query
+                ->orderBy('goods_receipts.receipt_date')
+                ->limit(5)
+                ->select($select)
+                ->get()
+                ->map(fn ($row) => [
+                    'id' => $row->id,
+                    'code' => $row->code,
+                    'supplier_id' => $row->supplier_id,
+                    'supplier_name' => $row->supplier_name ?? null,
+                    'receipt_date' => $row->receipt_date,
+                ])
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    protected function pendingGoodsReceiptsTotal(int $companyId): int
+    {
+        try {
+            if (! Schema::hasTable('goods_receipts')) {
+                return 0;
+            }
+
+            return (int) $this->pendingGoodsReceiptsQuery($companyId)->count();
         } catch (\Throwable) {
             return 0;
         }

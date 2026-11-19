@@ -47,12 +47,14 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-slate-700">Số lượng *</label>
-                    <input v-model.number="form.qty" type="number" min="0" step="0.0001" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.qty" :decimals="4" :min="0.0001" placeholder="VD: 10" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
                     <p v-if="form.errors.qty" class="mt-1 text-sm text-red-600">{{ form.errors.qty }}</p>
+                    <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn. Số lượng tối thiểu 0.0001.</p>
                 </div>
                 <div v-if="form.type === 'receive'">
                     <label class="mb-1 block text-sm font-medium text-slate-700">Giá nhập (đơn vị)</label>
-                    <input v-model.number="form.unit_cost" type="number" min="0" step="0.01" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <NumberInput v-model="form.unit_cost" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                    <p v-if="form.errors.unit_cost" class="mt-1 text-sm text-red-600">{{ form.errors.unit_cost }}</p>
                     <p class="mt-1 text-xs text-slate-400">Giá vốn bình quân sẽ được tính lại sau khi nhập.</p>
                 </div>
             </div>
@@ -68,6 +70,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { useFormat } from '../../../composables/useFormat.js';
 
 const props = defineProps({

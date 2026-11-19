@@ -17,13 +17,25 @@ class Employee extends BaseModel
     protected $fillable = [
         'company_id', 'code', 'full_name', 'email', 'phone',
         'department_id', 'position_id', 'user_id', 'hire_date',
+        'termination_date', 'dependents_count',
         'status', 'base_salary',
     ];
 
     protected $casts = [
         'hire_date' => 'date',
+        'termination_date' => 'date',
+        'dependents_count' => 'integer',
         'base_salary' => 'decimal:2',
     ];
+
+    /**
+     * Gán mã nhân viên chính thức NV-0001… theo id rồi lưu lại.
+     * Dùng sau khi tạo nhân viên (lúc tạo chưa có id nên chưa gán được mã).
+     */
+    public static function assignCode(Employee $employee): void
+    {
+        $employee->update(['code' => 'NV-'.str_pad($employee->id, 4, '0', STR_PAD_LEFT)]);
+    }
 
     public function department()
     {

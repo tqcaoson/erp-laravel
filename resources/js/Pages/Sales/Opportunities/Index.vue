@@ -77,7 +77,8 @@
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-slate-700">Giá trị dự kiến (₫)</label>
-                        <input v-model.number="form.expected_amount" type="number" min="0" step="1000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                        <NumberInput v-model="form.expected_amount" :min="0" placeholder="VD: 20000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
+                        <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn.</p>
                     </div>
                     <div>
                         <label class="mb-1 block text-sm font-medium text-slate-700">Ngày chốt dự kiến</label>
@@ -99,6 +100,7 @@
 
 <script setup>
 import { router, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 import { ref } from 'vue';
 import Modal from '../../../Components/Modal.vue';
 import { useFormat } from '../../../composables/useFormat';

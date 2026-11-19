@@ -21,6 +21,7 @@ Route::middleware(['web', 'auth'])->prefix('reports')->name('reports.')->group(f
         Route::get('/', [ReportController::class, 'index'])->name('index');
         Route::get('/revenue-by-customer', [ReportController::class, 'revenueByCustomer'])->name('revenue-by-customer');
         Route::get('/aging', [ReportController::class, 'aging'])->name('aging');
+        Route::get('/payables-by-supplier', [ReportController::class, 'payablesBySupplier'])->name('payables-by-supplier');
         Route::get('/stock-movement', [ReportController::class, 'stockMovement'])->name('stock-movement');
     });
 });

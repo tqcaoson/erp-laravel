@@ -31,7 +31,7 @@ return new class extends Migration
             $table->foreignId('company_id')->constrained('companies')->cascadeOnDelete();
             $table->string('code', 40);
             $table->char('period', 7); // 'YYYY-MM'
-            $table->enum('status', ['draft', 'calculated', 'locked'])->default('draft');
+            $table->enum('status', ['draft', 'calculated', 'locked', 'approved', 'paid'])->default('draft');
             $table->decimal('total_gross', 18, 2)->default(0);
             $table->decimal('total_deductions', 18, 2)->default(0);
             $table->decimal('total_tax', 18, 2)->default(0);

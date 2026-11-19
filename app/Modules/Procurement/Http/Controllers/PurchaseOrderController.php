@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Inventory\Models\Product;
 use App\Modules\Procurement\Models\PurchaseOrder;
 use App\Modules\Procurement\Models\PurchaseRequest;
+use App\Modules\Procurement\Models\Rfq;
 use App\Modules\Procurement\Models\Supplier;
 use App\Modules\Procurement\Requests\PurchaseOrderRequest;
 use App\Modules\Procurement\Services\PurchaseOrderService;
@@ -25,7 +26,8 @@ class PurchaseOrderController extends Controller
 
     public function index(Request $request)
     {
-        $query = PurchaseOrder::query()->with(['supplier']);
+        // Nạp sẵn dòng để giao diện tính cột "Tiến độ nhận" (received/qty).
+        $query = PurchaseOrder::query()->with(['supplier', 'lines']);
 
         if ($request->filled('supplier_id')) {
             $query->where('supplier_id', $request->input('supplier_id'));
@@ -52,11 +54,39 @@ class PurchaseOrderController extends Controller
             ? PurchaseRequest::query()->with('lines.product')->find($request->input('purchase_request_id'))
             : null;
 
+        // Tạo PO từ RFQ đã chấp nhận: tự điền nhà cung cấp + dòng với giá
+        // chào (quoted_price). Prop fromRfq có cùng dạng với fromRequest
+        // (id, supplier_id, lines với product_id/qty/unit_price) để trang
+        // Create điền sẵn theo cùng cơ chế prefill. Chỉ RFQ đã chấp nhận
+        // mới được chuyển thành đơn mua.
+        $fromRfq = null;
+        if ($request->filled('rfq_id')) {
+            $rfq = Rfq::query()->with('lines.product')->find($request->input('rfq_id'));
+
+            if ($rfq && $rfq->status === 'accepted') {
+                $fromRfq = [
+                    'id' => $rfq->id,
+                    'code' => $rfq->code,
+                    'supplier_id' => $rfq->supplier_id,
+                    'lines' => $rfq->lines->map(fn ($line) => [
+                        'id' => $line->id,
+                        'product_id' => $line->product_id,
+                        'qty' => $line->qty,
+                        'quoted_price' => $line->quoted_price,
+                        // Trang Create đọc unit_price khi điền sẵn dòng.
+                        'unit_price' => $line->quoted_price,
+                        'product' => $line->product,
+                    ])->all(),
+                ];
+            }
+        }
+
         return Inertia::render('Procurement/PurchaseOrders/Create', [
             'suppliers' => Supplier::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
             'products' => Product::query()->where('is_active', true)->orderBy('name')->get(['id', 'sku', 'name', 'average_cost']),
             'purchaseRequests' => PurchaseRequest::query()->where('status', 'approved')->orderByDesc('created_at')->get(['id', 'code', 'total_amount']),
             'fromRequest' => $purchaseRequest,
+            'fromRfq' => $fromRfq,
         ]);
     }
 

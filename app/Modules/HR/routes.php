@@ -62,8 +62,14 @@ Route::middleware(['web', 'auth'])->prefix('hr')->name('hr.')->group(function ()
         Route::post('/payroll-runs/{payrollRun}/calculate', [PayrollRunController::class, 'calculate'])->name('payroll-runs.calculate');
         Route::post('/payroll-runs/{payrollRun}/calculate-async', [PayrollRunController::class, 'calculateAsync'])->name('payroll-runs.calculate-async');
     });
-    Route::middleware('permission:hr.payroll.approve')->group(function () {
+    Route::middleware('permission:hr.payroll.lock')->group(function () {
         Route::post('/payroll-runs/{payrollRun}/lock', [PayrollRunController::class, 'lock'])->name('payroll-runs.lock');
+    });
+    Route::middleware('permission:hr.payroll.approve')->group(function () {
+        Route::post('/payroll-runs/{payrollRun}/approve', [PayrollRunController::class, 'approve'])->name('payroll-runs.approve');
+    });
+    Route::middleware('permission:hr.payroll.pay')->group(function () {
+        Route::post('/payroll-runs/{payrollRun}/pay', [PayrollRunController::class, 'pay'])->name('payroll-runs.pay');
     });
 });
 
@@ -118,7 +124,13 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api/v1/hr')->name('api.hr.')
         Route::post('/payroll-runs/{payrollRun}/calculate', [PayrollRunApiController::class, 'calculate'])->name('payroll-runs.calculate');
         Route::post('/payroll-runs/{payrollRun}/calculate-async', [PayrollRunApiController::class, 'calculateAsync'])->name('payroll-runs.calculate-async');
     });
-    Route::middleware('permission:hr.payroll.approve')->group(function () {
+    Route::middleware('permission:hr.payroll.lock')->group(function () {
         Route::post('/payroll-runs/{payrollRun}/lock', [PayrollRunApiController::class, 'lock'])->name('payroll-runs.lock');
+    });
+    Route::middleware('permission:hr.payroll.approve')->group(function () {
+        Route::post('/payroll-runs/{payrollRun}/approve', [PayrollRunApiController::class, 'approve'])->name('payroll-runs.approve');
+    });
+    Route::middleware('permission:hr.payroll.pay')->group(function () {
+        Route::post('/payroll-runs/{payrollRun}/pay', [PayrollRunApiController::class, 'pay'])->name('payroll-runs.pay');
     });
 });

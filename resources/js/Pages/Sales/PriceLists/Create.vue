@@ -33,16 +33,18 @@
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-medium text-slate-500">Giá (₫)</label>
-                            <input v-model.number="item.price" type="number" min="0" step="1000" required class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="item.price" :min="0" required placeholder="VD: 20000" class="w-32 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
                         </div>
                         <div>
                             <label class="mb-1 block text-xs font-medium text-slate-500">SL tối thiểu</label>
-                            <input v-model.number="item.min_qty" type="number" min="0.0001" step="0.01" class="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
+                            <NumberInput v-model="item.min_qty" :decimals="4" :min="0.0001" placeholder="VD: 10" class="w-24 rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-blue-500 focus:outline-none" />
                         </div>
                         <button type="button" class="pb-1.5 text-sm text-red-600 hover:underline" @click="removeItem(i)">Xóa</button>
                     </div>
                 </div>
             </div>
+
+            <p class="mt-1 text-xs text-slate-400">Nhập số, có thể dùng dấu . hoặc , phân cách nghìn (VD: 20.000 = 20000).</p>
 
             <div class="flex gap-2">
                 <button type="submit" :disabled="form.processing" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
@@ -58,6 +60,7 @@
 
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3';
+import NumberInput from '../../../Components/NumberInput.vue';
 
 defineProps({ products: { type: Array, required: true } });
 
