@@ -54,12 +54,53 @@ docker compose up -d --build
 ```
 
 Lần đầu chạy, container `app` tự động: đợi MySQL sẵn sàng → sinh `APP_KEY`
-(nếu chưa có) → chạy migration → seed dữ liệu demo (nếu database trống).
+(nếu chưa có, ghi vào `.env` trên host) → chạy migration → seed dữ liệu demo
+(nếu database trống) → khôi phục `public/build` nếu máy host chưa có.
 Không cần chạy thêm lệnh nào.
 
 > **Đổi mật khẩu mặc định:** file `.env` có `DB_PASSWORD` và
 > `DB_ROOT_PASSWORD` là giá trị mẫu — hãy đổi thành mật khẩu mạnh trước khi
 > dùng cho dữ liệu thật.
+
+## Sửa code khi đang chạy (bind mount)
+
+Toàn bộ thư mục source trên máy host được mount vào container (`app`,
+`queue`, `scheduler` mount `.:/var/www/html`, `nginx` mount `./public`),
+nên sửa code trên host là chạy ngay, **không cần build lại image**.
+Ngoại lệ duy nhất là các trường hợp dưới đây:
+
+| Loại thay đổi | Cần làm thêm |
+|---|---|
+| PHP: `app/`, `routes/`, `config/`, Blade (`resources/views`) | Không cần làm gì — lưu file là ăn ngay |
+| Vue: `resources/js/**/*.vue` | Build lại asset (xem dưới), không cần restart container |
+| File tĩnh trong `public/` (ảnh, css ngoài build) | Không cần làm gì — nginx đọc trực tiếp từ host |
+| `.env` | `docker compose restart app` (php-fpm giữ biến môi trường trong bộ nhớ) |
+| `composer.json` / `composer.lock` | Build lại image + xóa volume `vendor` cũ (xem dưới) |
+| Code chạy trong queue job | `docker compose restart queue` (`queue:work` giữ code trong bộ nhớ) |
+
+```bash
+# Build lại asset Vue sau khi sửa file .vue (máy có Node thì chạy trực tiếp)
+npm run build
+
+# Máy chưa có Node: build bằng container node tạm (không cần cài Node trên máy)
+docker run --rm -v "$PWD:/build" -v erp_node_modules:/build/node_modules -w /build node:24-slim sh -c 'npm install && npm run build'
+# Lưu ý: lệnh này cần thư mục vendor/ trên host (app.js import Ziggy từ đó).
+# Lấy vendor ra khỏi container một lần: docker cp erp_app:/var/www/html/vendor ./vendor
+```
+
+```bash
+# Đổi composer.json: build lại image rồi xóa volume vendor cũ
+# (volume giữ vendor của image cũ, build lại không tự cập nhật)
+docker compose down
+docker volume ls | grep vendor   # xem tên volume vendor, vd erp_laravel11_vue3_vendor
+docker volume rm <tên-volume-vendor>
+docker compose up -d --build
+```
+
+> **Nâng cấp từ bản cũ:** volume `public_data` của bản trước không còn dùng
+> nữa (nginx giờ đọc thẳng `./public` trên host). Volume cũ cứ để đó cũng
+> không sao; muốn dọn thì `docker volume ls | grep public_data` rồi
+> `docker volume rm <tên-volume>` (không dùng `down -v` vì sẽ xóa cả database).
 
 ## Tài khoản demo
 
@@ -103,7 +144,7 @@ docker compose --profile tools up -d phpmyadmin
 ```bash
 docker compose up -d --build   # build lại image + chạy
 docker compose down            # dừng toàn bộ (dữ liệu vẫn còn trong volume)
-docker compose down -v         # dừng + XÓA dữ liệu (volume mysql/redis/storage)
+docker compose down -v         # dừng + XÓA dữ liệu (volume mysql/redis/storage/vendor)
 docker compose logs -f app queue   # xem log app + queue
 docker compose ps              # trạng thái các container
 
@@ -238,7 +279,7 @@ php artisan serve   # mở http://127.0.0.1:8000
 | Cổng 80 đã bận | Đặt `NGINX_PORT=8081` trong `.env` rồi `docker compose up -d`, mở http://localhost:8081 |
 | `app` lỗi kết nối MySQL lúc khởi động | `entrypoint.sh` đã đợi tối đa 60s; nếu vẫn lỗi, kiểm tra `docker compose logs mysql` và `docker compose ps` (mysql phải `healthy`) |
 | Trang trắng / lỗi 500 | `docker compose logs -f app` để xem lỗi; thường do `APP_KEY` trống — entrypoint tự sinh, nếu vẫn trống thì chạy `docker compose exec app php artisan key:generate --force` rồi `docker compose restart app` |
-| Mở trang báo 403 Forbidden (nginx) | Kiểm tra `docker compose ps` — `app` phải ở trạng thái `healthy` (entrypoint cần ~1 phút lúc chạy lần đầu để migrate + seed + copy thư mục public). Xem `docker compose logs app` nếu app không healthy. Nếu vừa cập nhật source mới: `docker compose down -v` rồi `docker compose up -d --build` để xóa volume `public_data` cũ |
+| Mở trang báo 403 Forbidden (nginx) | Kiểm tra `docker compose ps` — `app` phải ở trạng thái `healthy` (entrypoint cần ~1 phút lúc chạy lần đầu để migrate + seed). Xem `docker compose logs app` nếu app không healthy |
 | Lỗi quyền ghi `storage/` | `docker compose exec app chown -R www-data:www-data storage bootstrap/cache` |
 | Muốn làm sạch toàn bộ để chạy lại từ đầu | `docker compose down -v` rồi `docker compose up -d --build` (migration + seed chạy lại tự động) |
 | Quên mật khẩu admin | `docker compose exec app php artisan tinker` rồi `App\Models\User::where('email','admin@erp.local')->first()->update(['password' => bcrypt('password')]);` |

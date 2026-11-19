@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Route;
 // Dashboard chính — route quan trọng nhất: trang login redirect về đây
 // và sidebar trỏ tới đây. Chỉ cần đăng nhập (không bắt buộc quyền
 // reporting.dashboard.view để tránh khóa user mới chưa có vai trò;
-// KPI bên trong vẫn lọc theo công ty của user).
+// KPI bên trong được lọc theo công ty VÀ theo quyền của user trong
+// DashboardController, nên role nào cũng mở được trang nhưng mỗi role
+// chỉ thấy số liệu thuộc module của mình).
 Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });

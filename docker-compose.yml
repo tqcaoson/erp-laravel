@@ -1,8 +1,17 @@
-# docker-compose.yml — theo mục 10.3 của thiết kế, có 2 điều chỉnh để chạy được thật:
-# 1. nginx KHÔNG mount ./public từ máy host (file build nằm trong image).
-#    Thay vào đó app copy public sang named volume "public_data" lúc khởi động
-#    (xem docker/php/entrypoint.sh), nginx mount volume đó ở chế độ chỉ đọc.
-# 2. Thêm service phpmyadmin (profile "tools", cổng 8080) để quản trị DB khi dev.
+# docker-compose.yml — theo mục 10.3 của thiết kế.
+#
+# CHẾ ĐỘ DEV BIND MOUNT: toàn bộ thư mục source trên máy host được mount
+# vào container app/queue/scheduler ở /var/www/html, nginx mount ./public.
+# Sửa code trên host là chạy ngay, không cần build lại image:
+#   - PHP (app/, routes/, config/, resources/views): lưu file là ăn ngay
+#     (opcache kiểm tra lại file mỗi request, config/route không cache).
+#   - Vue (resources/js): phải build lại asset (npm run build) rồi mới thấy
+#     đổi — xem mục "Sửa code khi đang chạy" trong README.
+#   - .env: restart app (php-fpm giữ biến môi trường trong bộ nhớ).
+#   - composer.json: build lại image + xóa volume vendor (xem README).
+# Thư mục vendor/ dùng named volume riêng để bind mount không che mất
+# (vendor chỉ có trong image, máy host không cần cài Composer/PHP).
+# Thêm service phpmyadmin (profile "tools", cổng 8080) để quản trị DB khi dev.
 
 services:
   app:
@@ -13,18 +22,22 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
+      # Bind mount source: sửa trên host, container ăn ngay.
+      - .:/var/www/html
+      # vendor/ chỉ có trong image — volume riêng để bind mount không che mất.
+      # Volume mới được Docker tự điền từ image lúc tạo lần đầu.
+      - vendor:/var/www/html/vendor
       - storage_data:/var/www/html/storage
-      - public_data:/mnt/public
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_started
-    # Entrypoint copy public sang volume rồi mới chạy php-fpm; healthcheck này
-    # báo healthy khi file index.php đã có trong volume, để nginx chỉ bắt đầu
-    # phục vụ khi nội dung đã sẵn sàng (tránh 403 lúc mới khởi động).
+    # Entrypoint chạm file /tmp/erp-ready sau khi migrate + seed xong;
+    # healthcheck này báo healthy khi file đó đã có, để nginx chỉ bắt đầu
+    # phục vụ khi hệ thống đã khởi tạo xong (tránh 502 lúc mới khởi động).
     healthcheck:
-      test: ["CMD", "test", "-f", "/mnt/public/index.php"]
+      test: ["CMD", "test", "-f", "/tmp/erp-ready"]
       interval: 5s
       timeout: 3s
       retries: 3
@@ -40,6 +53,8 @@ services:
     command: php artisan queue:work --tries=3 --sleep=3
     env_file: .env
     volumes:
+      - .:/var/www/html
+      - vendor:/var/www/html/vendor
       - storage_data:/var/www/html/storage
     depends_on: [app]
     networks: [erp_net]
@@ -53,6 +68,8 @@ services:
     command: php artisan schedule:work
     env_file: .env
     volumes:
+      - .:/var/www/html
+      - vendor:/var/www/html/vendor
       - storage_data:/var/www/html/storage
     depends_on: [app]
     networks: [erp_net]
@@ -65,7 +82,8 @@ services:
       - "${NGINX_PORT:-80}:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - public_data:/var/www/html/public:ro
+      # Phục vụ file tĩnh trực tiếp từ thư mục public trên host.
+      - ./public:/var/www/html/public:ro
     depends_on:
       app:
         condition: service_healthy
@@ -120,7 +138,10 @@ volumes:
   mysql_data:
   redis_data:
   storage_data:
-  public_data:
+  # vendor/ của image (được điền lúc tạo volume lần đầu). Khi đổi
+  # composer.json phải xóa volume này rồi up lại để lấy vendor mới —
+  # xem mục "Sửa code khi đang chạy" trong README.
+  vendor:
 
 networks:
   erp_net:

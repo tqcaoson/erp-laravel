@@ -156,8 +156,12 @@ class RolePermissionSeeder extends Seeder
                             $granted[] = $permissionName;
                         }
                     }
-                } elseif (str_ends_with($pattern, '.view')) {
-                    // '*.view': tất cả quyền xem của mọi module.
+                } elseif ($pattern === '*.view') {
+                    // Chỉ đúng mẫu '*.view' mới nghĩa là tất cả quyền xem.
+                    // Trước đây điều kiện là str_ends_with($pattern, '.view')
+                    // nên mọi quyền xem cụ thể (vd 'procurement.po.view')
+                    // cũng bị hiểu thành wildcard, cấp nhầm toàn bộ quyền
+                    // .view cho mọi role có dù chỉ 1 quyền xem cụ thể.
                     foreach (array_keys($allPermissions) as $permissionName) {
                         if (str_ends_with($permissionName, '.view')) {
                             $granted[] = $permissionName;
@@ -173,7 +177,12 @@ class RolePermissionSeeder extends Seeder
                 ->filter()
                 ->all();
 
-            $role->permissions()->syncWithoutDetaching($ids);
+            // sync() thay cho syncWithoutDetaching(): seeder là nguồn đúng
+            // của phân quyền role, chạy lại phải gỡ cả quyền đã cấp nhầm
+            // trước đây (vd toàn bộ .view do lỗi wildcard ở trên), chứ
+            // không chỉ thêm quyền mới. Lưu ý: quyền gán tay ngoài seeder
+            // sẽ bị gỡ khi chạy lại seeder này.
+            $role->permissions()->sync($ids);
         }
     }
 }

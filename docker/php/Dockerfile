@@ -49,6 +49,11 @@ WORKDIR /var/www/html
 
 COPY --from=vendor /app /var/www/html
 COPY --from=frontend /build/public/build /var/www/html/public/build
+# Bản sao dự phòng của asset đã build: ở chế độ dev bind mount, thư mục
+# public/ trên host che mất public/build trong image. Entrypoint sẽ khôi
+# phục từ đây nếu máy host chưa có public/build (mới giải nén), để trang
+# chạy được ngay lần đầu; sau đó build trên host sẽ ghi đè bình thường.
+COPY --from=frontend /build/public/build /opt/erp-public-build
 COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/erp.ini
 
@@ -58,8 +63,7 @@ COPY docker/php/php.ini /usr/local/etc/php/conf.d/erp.ini
 # sẽ 403 Forbidden. a+rX: file thành 644, thư mục thành 755.
 RUN chmod -R a+rX /var/www/html \
  && chmod +x /usr/local/bin/entrypoint.sh \
- && chown -R www-data:www-data storage bootstrap/cache \
- && mkdir -p /mnt/public
+ && chown -R www-data:www-data storage bootstrap/cache
 
 EXPOSE 9000
 
