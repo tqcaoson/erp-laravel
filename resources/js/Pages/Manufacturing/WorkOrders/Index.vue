@@ -1,6 +1,15 @@
 <template>
     <div class="space-y-4">
-        <h1 class="text-xl font-bold text-slate-800">Công đoạn sản xuất</h1>
+        <div class="flex items-center justify-between">
+            <h1 class="text-xl font-bold text-slate-800">Công đoạn sản xuất</h1>
+            <Link
+                v-if="can('manufacturing.workorder.manage')"
+                :href="route('manufacturing.work-orders.create')"
+                class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+                + Thêm công đoạn
+            </Link>
+        </div>
 
         <form class="flex flex-wrap gap-2" @submit.prevent="applyFilters">
             <select v-model="form.status" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
@@ -45,6 +54,13 @@
                 </select>
                 <StatusBadge v-else :status="row.status" />
             </template>
+            <template #cell-actions="{ row }">
+                <div v-if="can('manufacturing.workorder.manage')" class="flex gap-2 text-xs">
+                    <Link :href="route('manufacturing.work-orders.edit', row.id)" class="text-blue-600 hover:underline">Sửa</Link>
+                    <button type="button" class="text-red-600 hover:underline" @click="removeWorkOrder(row)">Xóa</button>
+                </div>
+                <span v-else>—</span>
+            </template>
         </DataTable>
     </div>
 </template>
@@ -88,6 +104,7 @@ const columns = [
     { key: 'planned_minutes', label: 'Phút chuẩn' },
     { key: 'actual_minutes', label: 'Phút thực tế' },
     { key: 'status', label: 'Trạng thái' },
+    { key: 'actions', label: '' },
 ];
 
 function applyFilters() {
@@ -102,5 +119,11 @@ function changeStatus(workOrder, status) {
         status,
         actual_minutes: minutesById[workOrder.id] ?? workOrder.actual_minutes,
     }, { preserveScroll: true });
+}
+
+function removeWorkOrder(workOrder) {
+    if (confirm(`Xóa công đoạn "${workOrder.operation_name}" của lệnh ${workOrder.manufacturing_order?.code ?? ''}? Hành động này không thể hoàn tác.`)) {
+        router.delete(route('manufacturing.work-orders.destroy', workOrder.id), { preserveScroll: true });
+    }
 }
 </script>

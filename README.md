@@ -8,6 +8,10 @@ Inertia.js, dùng routing và session của Laravel.
 **Stack:** Laravel 11 · PHP 8.3 · Inertia.js 3 + Vue 3 + Tailwind CSS 3 ·
 MySQL 8 · Redis 7 · Docker.
 
+Tài liệu mô tả luồng nghiệp vụ từng tính năng (chỉ nghiệp vụ, không nói
+về code) nằm ở file **[LUONG-NGHIEP-VU-ERP.md](./LUONG-NGHIEP-VU-ERP.md)**
+trong thư mục gốc của source này.
+
 ## Tính năng chính (7 module)
 
 | Module | Tính năng nổi bật |
@@ -16,19 +20,20 @@ MySQL 8 · Redis 7 · Docker.
 | 🛒 Mua hàng | Nhà cung cấp, yêu cầu mua (duyệt theo ngưỡng 50 triệu), báo giá NCC, đơn mua, nhận hàng đối chiếu PO từng phần |
 | 📦 Kho | Đa kho, vị trí kho → khu → kệ → ô, nhập/xuất/chuyển kho (khóa `FOR UPDATE`, chống xuất vượt tồn), kiểm kê, giá vốn bình quân |
 | 🤝 Bán hàng & CRM | Khách hàng + hạn mức công nợ, pipeline cơ hội (kanban), báo giá → đơn bán, giao hàng từng phần, bảng giá |
-| 🏭 Sản xuất | BOM đa cấp, lệnh sản xuất (kiểm tra đủ nguyên liệu, thiếu thì gợi ý mua), công đoạn, ghi nhận sản lượng/phế phẩm |
-| 👥 Nhân sự & Lương | Hồ sơ nhân viên, chấm công, nghỉ phép (trừ số dư), bảng lương (BHXH/BHYT/BHTN + thuế TNCN), khóa lương sinh bút toán |
-| 📊 Báo cáo | Dashboard theo vai trò (cache Redis 5 phút), doanh thu theo khách, công nợ tuổi nợ, xuất nhập tồn, xuất CSV |
+| 🏭 Sản xuất | BOM đa cấp, lệnh sản xuất (kiểm tra đủ nguyên liệu, thiếu thì gợi ý mua), công đoạn, ghi nhận tiến độ từng phần + sản lượng/phế phẩm |
+| 👥 Nhân sự & Lương | Hồ sơ nhân viên, chấm công (lịch tháng), nghỉ phép (trừ số dư), bảng lương theo ngày công thực tế (BHXH/BHYT/BHTN + thuế TNCN theo luật từ 7/2026), khóa → duyệt → trả lương, duyệt lương sinh bút toán |
+| 📊 Báo cáo | Dashboard theo vai trò (cache Redis 5 phút), doanh thu theo khách, công nợ tuổi nợ, công nợ phải trả theo NCC, xuất nhập tồn, xuất CSV |
 
 **Luồng xuyên module bằng event** (không gọi chéo model để sửa dữ liệu):
 đơn bán xác nhận → kho tạo phiếu giao + gợi ý mua phần thiếu; giao hàng →
-bút toán giá vốn Nợ 632/Có 156; nhận hàng → tăng tồn + ghi nhận nhập hàng;
-khóa lương → bút toán lương; tồn dưới mức tối thiểu → gợi ý mua hàng.
+bút toán giá vốn Nợ 632/Có 156; nhận hàng → tăng tồn + ghi nhận nhập hàng
+(Nợ 156/Có 335, hóa đơn mua ghi sổ kết chuyển sang 331); duyệt lương →
+bút toán lương; tồn dưới mức tối thiểu → gợi ý mua hàng.
 
 **Đa công ty + phân quyền:** user thuộc nhiều công ty, đổi công ty ở topbar;
-mọi truy vấn tự lọc theo `company_id`; RBAC với 74 quyền dạng `module.action`
-và 6 vai trò (admin, giám đốc, kế toán, kho, bán hàng, nhân sự); mọi thay đổi
-chứng từ đều ghi audit log.
+mọi truy vấn tự lọc theo `company_id`; RBAC với 84 quyền dạng `module.action`
+và 9 vai trò (admin, giám đốc, kế toán, kho, bán hàng, mua hàng, sản xuất,
+nhân sự, nhân viên); mọi thay đổi chứng từ đều ghi audit log.
 
 ## Yêu cầu hệ thống
 
@@ -111,17 +116,50 @@ Mật khẩu tất cả các tài khoản đều là **`password`**.
 | `admin@erp.local` | Quản trị hệ thống (toàn quyền) |
 | `giamdoc@erp.local` | Giám đốc (xem tất cả + duyệt) |
 | `ketoan@erp.local` | Kế toán |
-| `sanxuat@erp.local` | Sản xuất |
 | `kho@erp.local` | Thủ kho |
 | `banhang@erp.local` | Nhân viên bán hàng |
 | `muahang@erp.local` | Nhân viên mua hàng |
+| `sanxuat@erp.local` | Nhân viên sản xuất |
 | `nhansu@erp.local` | Nhân sự |
+| `nhanvien@erp.local` | Nhân viên (tự chấm công, xin nghỉ, xem phiếu lương của mình) |
 
 Công ty demo: **Công ty TNHH XT Mechanical** (VND) — đã có sẵn 2 kho
-(Hà Nội, TP. Hồ Chí Minh), 10 sản phẩm, tồn đầu kỳ, khách hàng
-**Công ty Minh Long** (hạn mức công nợ 50.000.000đ), 2 nhà cung cấp,
-1 báo giá + 1 đơn bán mẫu ở trạng thái nháp (đúng ví dụ trong tài liệu
-thiết kế: 100 thùng nước ép cam, kho Hà Nội có sẵn 80 thùng).
+(Hà Nội, TP. Hồ Chí Minh), 10 sản phẩm bán + 2 nguyên liệu (cam tươi,
+chai PET), tồn đầu kỳ, khách hàng **Công ty Minh Long** (hạn mức công nợ
+50.000.000đ), 2 nhà cung cấp, 1 báo giá + 1 đơn bán mẫu ở trạng thái nháp
+(đúng ví dụ trong tài liệu thiết kế: 100 thùng nước ép cam, kho Hà Nội có
+sẵn 80 thùng), 1 BOM + 1 quy trình sản xuất nước ép cam, 1 lệnh sản xuất
+nháp và 1 lệnh đang chạy dở (đã làm 12/30 thùng, có sẵn công đoạn).
+
+## Gỡ bỏ
+
+Ba mức, tùy mục đích:
+
+```bash
+# 1. Chỉ dừng tạm (giữ nguyên dữ liệu, lần sau up lại là chạy tiếp)
+docker compose down
+
+# 2. Xóa sạch để cài lại từ đầu (xóa database, volume, image của project)
+docker compose --profile tools down -v --rmi local --remove-orphans
+docker volume rm erp_laravel11_vue3_public_data 2>/dev/null || true   # volume cũ (bản trước), nếu còn
+rm -rf public/build      # bắt buộc, nếu không app có thể chạy giao diện cũ
+docker compose up -d --build
+```
+
+> Tên volume `erp_laravel11_vue3_...` là tên mặc định khi thư mục source
+> là `ERP_Laravel11_Vue3`. Nếu thư mục của bạn tên khác, kiểm tra bằng
+> `docker volume ls | grep erp` rồi thay tên tương ứng.
+
+```bash
+# 3. Gỡ hẳn khỏi máy: làm bước 2 rồi xóa thư mục source
+#    (lệnh trên đã xóa hết container/volume/image của project)
+cd ..
+rm -rf ERP_Laravel11_Vue3
+```
+
+> **Cẩn thận:** `down -v` xóa **toàn bộ dữ liệu** đã nhập (đơn hàng, bút
+> toán, nhân viên...). Cần giữ dữ liệu thì sao lưu trước (xem mục
+> "Lệnh thường dùng" — mysqldump) rồi mới gỡ.
 
 ## Các service và cổng
 
@@ -168,7 +206,8 @@ kho Hà Nội có 80 thùng) đang ở trạng thái nháp:
 
 1. **Bán hàng → Đơn bán hàng:** mở đơn `SO-2026-0001`, bấm **Xác nhận**.
    Đơn 46.200.000đ trong hạn mức 50tr nên chuyển `confirmed` ngay
-   (đơn vượt hạn mức sẽ chuyển `pending_approval` để kế toán trưởng duyệt).
+   (đơn vượt hạn mức sẽ chuyển `pending_approval` để giám đốc duyệt,
+   và người tạo đơn không được tự duyệt đơn của mình).
 2. **Kho tự tạo phiếu giao** cho 80 thùng đủ tồn + gợi ý mua 20 thùng thiếu
    (xem ở **Mua hàng → Yêu cầu mua hàng**).
 3. **Bán hàng → Phiếu giao hàng:** xác nhận giao 80 thùng → kho xuất hàng,
@@ -197,8 +236,9 @@ erp/
 │   ├── Components/                # DataTable, StatusBadge, Modal
 │   ├── composables/               # useFormat (tiền/ngày vi-VN), usePermission
 │   └── Pages/                     # Trang Inertia theo module
-├── database/migrations/    # 42 migration (core → kho → kế toán → mua → bán → SX → HR → báo cáo)
+├── database/migrations/    # 47 migration (core → kho → kế toán → mua → bán → SX → HR → báo cáo)
 ├── database/seeders/       # Company, RolePermission, User, ChartOfAccounts, DemoData
+├── LUONG-NGHIEP-VU-ERP.md  # Mô tả luồng nghiệp vụ từng tính năng (không nói về code)
 ├── docker/
 │   ├── php/Dockerfile      # Multi-stage: node build + composer vendor + php:8.3-fpm-alpine
 │   ├── php/entrypoint.sh   # Đợi MySQL, sinh key, migrate, seed, đồng bộ public/
@@ -206,7 +246,7 @@ erp/
 │   └── mysql/init.sql
 ├── docker-compose.yml
 ├── .env.example
-└── tests/Feature/          # 8 test (bút toán lệch, xuất vượt tồn, hạn mức, phân quyền)
+└── tests/Feature/          # 159 test (bút toán, phân quyền, lương, công nợ, sản xuất, ...)
 ```
 
 **Quy tắc phụ thuộc:** module không import model của module khác để sửa dữ
@@ -289,12 +329,13 @@ php artisan serve   # mở http://127.0.0.1:8000
 
 ## Lưu ý quan trọng / giới hạn đã biết
 
-- **Chưa kiểm chứng chạy Docker thật:** bộ file Docker (Dockerfile, compose,
-  entrypoint, nginx) đã được kiểm tra cú pháp (`docker compose config` pass)
-  và logic entrypoint đã rà soát, nhưng môi trường phát triển không khởi
-  động được Docker daemon (thiếu quyền tạo mạng bridge) nên chưa chạy
-  `docker compose up` thật. Lần chạy đầu trên máy của bạn nếu gặp lỗi, xem
-  bảng xử lý lỗi ở trên hoặc kiểm tra `docker compose logs`.
+- **Chưa kiểm chứng chạy Docker thật trên máy phát triển:** bộ file Docker
+  (Dockerfile, compose, entrypoint, nginx) đã được kiểm tra cú pháp
+  (`docker compose config` pass) và logic entrypoint đã rà soát, nhưng môi
+  trường phát triển không khởi động được Docker daemon (thiếu quyền tạo
+  mạng bridge) nên chưa chạy `docker compose up` thật ở đó. Hệ thống đã
+  chạy trên Docker Desktop (macOS) của người dùng. Lần chạy đầu nếu gặp
+  lỗi, xem bảng xử lý lỗi ở trên hoặc kiểm tra `docker compose logs`.
 - **Laravel 11 + advisory bảo mật:** Composer 2.11 chặn cài Laravel 11 do
   các advisory (bản 11 đã hết thời gian hỗ trợ vá chính thức). Project đã
   đặt `policy.advisories.block: false` trong `composer.json` để cài được
@@ -305,13 +346,19 @@ php artisan serve   # mở http://127.0.0.1:8000
   triển khai FIFO sau).
 - **Xuất báo cáo:** chỉ xuất **CSV** (đủ mở bằng Excel). Xuất PDF chưa làm
   (đã ghi TODO trong code, không fake).
-- **Tỷ lệ BHXH/BHYT/BHTN và thuế TNCN** trong `PayrollService` là tỷ lệ
-  demo rút gọn theo luật tại thời điểm viết — cần kiểm tra lại với kế toán
+- **Tỷ lệ BHXH/BHYT/BHTN và thuế TNCN** trong `PayrollService` theo luật
+  từ 1/7/2026 (Luật 109/2025/QH15 + NĐ 161/2026): giảm trừ 15,5tr/người
+  và 6,2tr/người phụ thuộc, biểu thuế 5 bậc, trần BHXH/BHYT 50,6tr, trần
+  BHTN 106,2tr (vùng I). Công ty ở vùng khác cần đổi hằng số trần BHTN
   trước khi chạy lương thật.
 - **Ràng buộc CHECK của bút toán** (một dòng không vừa Nợ vừa Có) được thêm
   bằng SQL thô phân nhánh theo driver; nhánh SQLite đã kiểm chứng, nhánh
   MySQL (ALTER TABLE ADD CONSTRAINT) chưa chạy trên MySQL thật.
-- **Hóa đơn mua từ phiếu nhập:** phiếu nhận hàng đã sinh bút toán nhập
-  (Nợ 156/Có 331); nếu lập thêm hóa đơn mua từ cùng phiếu nhập thì cần đối
-  chiếu 3 chiều (PO – phiếu nhận – hóa đơn) ở giai đoạn sau để tránh ghi
-  trùng.
+- **Hóa đơn mua từ phiếu nhập:** phiếu nhận hàng sinh bút toán nhập
+  (Nợ 156/Có 335); hóa đơn mua lập từ phiếu nhận khi ghi sổ sẽ kết chuyển
+  (Nợ 335 + Nợ 133/Có 331), không ghi trùng. Dòng hóa đơn từ phiếu nhận có
+  thuế suất mặc định 0 (đơn mua ghi thuế ở cấp đơn) — kế toán bổ sung thuế
+  trên hóa đơn nháp trước khi ghi sổ.
+- **Hoàn thành sản xuất** mới chỉ chuyển kho (xuất nguyên liệu theo BOM,
+  nhập thành phẩm), chưa sinh bút toán kế toán; chưa nhập được nguyên liệu
+  thực tế tiêu hao (xuất kho theo đúng định mức BOM).

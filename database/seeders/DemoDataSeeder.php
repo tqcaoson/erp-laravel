@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Core\Models\Company;
 use App\Core\Models\Unit;
+use App\Core\Services\CurrentCompany;
 use App\Core\Services\DocumentNumberingService;
 use App\Modules\HR\Models\Department;
 use App\Modules\HR\Models\Employee;
@@ -18,6 +19,7 @@ use App\Modules\Manufacturing\Models\ManufacturingOrder;
 use App\Modules\Manufacturing\Models\Routing;
 use App\Modules\Manufacturing\Models\RoutingOperation;
 use App\Modules\Manufacturing\Models\WorkCenter;
+use App\Modules\Manufacturing\Services\ManufacturingOrderService;
 use App\Modules\Procurement\Models\Supplier;
 use App\Modules\Sales\Models\Customer;
 use App\Modules\Sales\Models\Quotation;
@@ -318,6 +320,24 @@ class DemoDataSeeder extends Seeder
             ],
         );
 
+        // Tồn nguyên liệu để cả 2 lệnh mẫu đều bắt đầu được: lệnh nháp
+        // 50 thùng cần 500kg cam + 1200 chai, lệnh đang chạy 30 thùng cần
+        // thêm 300kg + 720 chai. Ghi qua StockService như tồn đầu kỳ ở trên.
+        foreach ([
+            [$camTuoi, 1000, 25000],
+            [$chaiPet, 2500, 2000],
+        ] as [$material, $qty, $cost]) {
+            $exists = \App\Modules\Inventory\Models\StockQuant::query()
+                ->where('company_id', $companyId)
+                ->where('product_id', $material->id)
+                ->where('warehouse_id', $hn->id)
+                ->exists();
+
+            if (! $exists) {
+                $stock->receive($material->id, $hn->id, null, $qty, $cost, self::class, 1);
+            }
+        }
+
         $finished = $bySku['NEP-CAM-THUNG'];
 
         $bom = Bom::firstOrCreate(
@@ -367,6 +387,49 @@ class DemoDataSeeder extends Seeder
                 'planned_end_date' => now()->addDays(3)->toDateString(),
                 'note' => 'Lệnh sản xuất mẫu — xác nhận rồi bắt đầu để xem công đoạn tự sinh từ routing.',
             ]);
+
+            // Lệnh mẫu thứ 2: đang sản xuất dở (30 thùng, đã làm 12 thùng,
+            // hỏng 1) để trang Công đoạn có dữ liệu ngay sau khi cài đặt.
+            // Chạy qua đúng service như thao tác thật: xác nhận → bắt đầu
+            // (công đoạn tự sinh từ routing) → ghi tiến độ 1 đợt (xuất
+            // nguyên liệu + nhập thành phẩm thật qua kho). Service sinh mã
+            // công đoạn theo công ty hiện tại nên phải set CurrentCompany
+            // trước khi gọi, rồi trả lại như cũ (theo mẫu ChartOfAccountsSeeder).
+            $running = ManufacturingOrder::create([
+                'company_id' => $companyId,
+                'code' => $numbering->next('manufacturing_order', $companyId),
+                'product_id' => $finished->id,
+                'bom_id' => $bom->id,
+                'routing_id' => $routing->id,
+                'warehouse_id' => $hn->id,
+                'qty' => 30,
+                'produced_qty' => 0,
+                'status' => 'draft',
+                'planned_start_date' => now()->subDay()->toDateString(),
+                'planned_end_date' => now()->addDays(2)->toDateString(),
+                'note' => 'Lệnh sản xuất mẫu đang chạy — đã làm 12/30 thùng, công đoạn 1 xong, công đoạn 2 đang làm.',
+            ]);
+
+            $previousCompanyId = CurrentCompany::id();
+            CurrentCompany::setId($companyId);
+            try {
+                $moService = app(ManufacturingOrderService::class);
+                $moService->confirm($running->fresh());
+                $moService->start($running->fresh());
+                $moService->logProgress($running->fresh(), 12, 1);
+
+                // Công đoạn 1 đã xong (ghi phút thực tế), công đoạn 2 đang
+                // làm, công đoạn 3 chờ — để trang Công đoạn có đủ 3 trạng thái mẫu.
+                foreach ($running->fresh()->workOrders as $workOrder) {
+                    if ($workOrder->sequence === 1) {
+                        $workOrder->update(['status' => 'completed', 'actual_minutes' => 18]);
+                    } elseif ($workOrder->sequence === 2) {
+                        $workOrder->update(['status' => 'in_progress']);
+                    }
+                }
+            } finally {
+                CurrentCompany::setId($previousCompanyId);
+            }
         }
     }
 }

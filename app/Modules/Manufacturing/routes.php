@@ -43,6 +43,11 @@ Route::middleware(['web', 'auth'])->prefix('manufacturing')->name('manufacturing
 
     // Công đoạn sản xuất
     Route::get('/work-orders', [WorkOrderController::class, 'index'])->middleware('permission:manufacturing.mo.view')->name('work-orders.index');
+    Route::get('/work-orders/create', [WorkOrderController::class, 'create'])->middleware('permission:manufacturing.workorder.manage')->name('work-orders.create');
+    Route::post('/work-orders', [WorkOrderController::class, 'store'])->middleware('permission:manufacturing.workorder.manage')->name('work-orders.store');
+    Route::get('/work-orders/{workOrder}/edit', [WorkOrderController::class, 'edit'])->middleware('permission:manufacturing.workorder.manage')->name('work-orders.edit');
+    Route::put('/work-orders/{workOrder}', [WorkOrderController::class, 'update'])->middleware('permission:manufacturing.workorder.manage')->name('work-orders.update');
+    Route::delete('/work-orders/{workOrder}', [WorkOrderController::class, 'destroy'])->middleware('permission:manufacturing.workorder.manage')->name('work-orders.destroy');
     Route::patch('/work-orders/{workOrder}/status', [WorkOrderController::class, 'updateStatus'])->middleware('permission:manufacturing.mo.start')->name('work-orders.status');
 });
 

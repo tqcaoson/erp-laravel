@@ -81,6 +81,7 @@ class RolePermissionSeeder extends Seeder
             'manufacturing.mo.create' => 'Tạo lệnh sản xuất',
             'manufacturing.mo.start' => 'Bắt đầu sản xuất',
             'manufacturing.mo.complete' => 'Hoàn thành sản xuất',
+            'manufacturing.workorder.manage' => 'Quản lý công đoạn sản xuất',
             'manufacturing.workcenter.view' => 'Xem trung tâm sản xuất',
             'manufacturing.workcenter.manage' => 'Quản lý trung tâm sản xuất',
             'manufacturing.routing.view' => 'Xem quy trình sản xuất',
@@ -142,7 +143,7 @@ class RolePermissionSeeder extends Seeder
         'mua_hang' => ['procurement.pr.view', 'procurement.pr.create', 'procurement.po.view', 'procurement.po.create', 'procurement.rfq.view', 'procurement.rfq.manage', 'procurement.supplier.view', 'procurement.supplier.manage', 'procurement.gr.view', 'procurement.gr.create', 'inventory.product.view', 'inventory.stock.view', 'reporting.dashboard.view'],
         // Nhân viên sản xuất: chạy lệnh sản xuất và xem BOM/quy trình/
         // trung tâm — KHÔNG quản lý BOM/quy trình/trung tâm (thuộc admin).
-        'san_xuat' => ['manufacturing.mo.view', 'manufacturing.mo.create', 'manufacturing.mo.start', 'manufacturing.mo.complete', 'manufacturing.bom.view', 'manufacturing.routing.view', 'manufacturing.workcenter.view', 'inventory.stock.view', 'inventory.product.view', 'reporting.dashboard.view'],
+        'san_xuat' => ['manufacturing.mo.view', 'manufacturing.mo.create', 'manufacturing.mo.start', 'manufacturing.mo.complete', 'manufacturing.workorder.manage', 'manufacturing.bom.view', 'manufacturing.routing.view', 'manufacturing.workcenter.view', 'inventory.stock.view', 'inventory.product.view', 'reporting.dashboard.view'],
     ];
 
     public const ROLES = [

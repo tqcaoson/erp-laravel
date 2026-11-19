@@ -83,7 +83,16 @@
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 class="mb-3 text-sm font-semibold text-slate-700">Công đoạn</h2>
+            <div class="mb-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-slate-700">Công đoạn</h2>
+                <Link
+                    v-if="order.status === 'in_progress' && can('manufacturing.workorder.manage')"
+                    :href="route('manufacturing.work-orders.create', { manufacturing_order_id: order.id })"
+                    class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                >
+                    + Thêm công đoạn
+                </Link>
+            </div>
             <DataTable
                 :columns="[
                     { key: 'code', label: 'Mã' },
@@ -91,6 +100,7 @@
                     { key: 'work_center', label: 'Trung tâm' },
                     { key: 'planned_minutes', label: 'Phút chuẩn' },
                     { key: 'status', label: 'Trạng thái' },
+                    { key: 'actions', label: '' },
                 ]"
                 :items="order.work_orders ?? []"
                 empty-text="Chưa có công đoạn — công đoạn được tạo khi bắt đầu sản xuất (theo routing)."
@@ -98,6 +108,13 @@
                 <template #cell-work_center="{ row }">{{ row.work_center?.name ?? '—' }}</template>
                 <template #cell-planned_minutes="{ row }">{{ number(row.planned_minutes, 0) }}</template>
                 <template #cell-status="{ row }"><StatusBadge :status="row.status" /></template>
+                <template #cell-actions="{ row }">
+                    <div v-if="order.status === 'in_progress' && can('manufacturing.workorder.manage')" class="flex gap-2 text-xs">
+                        <Link :href="route('manufacturing.work-orders.edit', row.id)" class="text-blue-600 hover:underline">Sửa</Link>
+                        <button type="button" class="text-red-600 hover:underline" @click="removeWorkOrder(row)">Xóa</button>
+                    </div>
+                    <span v-else>—</span>
+                </template>
             </DataTable>
         </div>
 
@@ -179,7 +196,7 @@
 </template>
 
 <script setup>
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import DataTable from '../../../Components/DataTable.vue';
 import Modal from '../../../Components/Modal.vue';
@@ -254,5 +271,11 @@ function completeOrder() {
     completeForm.post(route('manufacturing.orders.complete', props.order.id), {
         onSuccess: () => { showComplete.value = false; },
     });
+}
+
+function removeWorkOrder(workOrder) {
+    if (confirm(`Xóa công đoạn "${workOrder.operation_name}"? Hành động này không thể hoàn tác.`)) {
+        router.delete(route('manufacturing.work-orders.destroy', workOrder.id), { preserveScroll: true });
+    }
 }
 </script>
