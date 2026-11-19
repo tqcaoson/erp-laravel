@@ -171,14 +171,31 @@ class DashboardService
         }
     }
 
-    /** Cảnh báo: tồn dưới mức tối thiểu (top 5), hóa đơn quá hạn, hợp đồng sắp hết hạn. */
+    /**
+     * Cảnh báo: tồn dưới mức tối thiểu (top 5), hóa đơn quá hạn, hợp đồng sắp hết hạn.
+     * Mỗi loại kèm tổng số mục (để giao diện hiển thị "Đang hiển thị 5 / N mục").
+     */
     public function alerts(int $companyId): array
     {
         return [
             'low_stock' => $this->lowStockProducts($companyId),
+            'low_stock_total' => $this->lowStockTotal($companyId),
             'overdue_invoices' => $this->overdueInvoices($companyId),
+            'overdue_invoices_total' => $this->overdueInvoicesTotal($companyId),
             'expiring_contracts' => $this->expiringContracts($companyId),
+            'expiring_contracts_total' => $this->expiringContractsTotal($companyId),
         ];
+    }
+
+    /** Query gốc: sản phẩm có tồn tổng dưới mức tối thiểu. */
+    protected function lowStockQuery(int $companyId)
+    {
+        return DB::table('products')
+            ->leftJoin('stock_quants', 'stock_quants.product_id', '=', 'products.id')
+            ->where('products.company_id', $companyId)
+            ->where('products.reorder_min', '>', 0)
+            ->groupBy('products.id', 'products.sku', 'products.name', 'products.reorder_min')
+            ->havingRaw('COALESCE(SUM(stock_quants.qty), 0) < products.reorder_min');
     }
 
     protected function lowStockProducts(int $companyId): array
@@ -188,12 +205,7 @@ class DashboardService
                 return [];
             }
 
-            return DB::table('products')
-                ->leftJoin('stock_quants', 'stock_quants.product_id', '=', 'products.id')
-                ->where('products.company_id', $companyId)
-                ->where('products.reorder_min', '>', 0)
-                ->groupBy('products.id', 'products.sku', 'products.name', 'products.reorder_min')
-                ->havingRaw('COALESCE(SUM(stock_quants.qty), 0) < products.reorder_min')
+            return $this->lowStockQuery($companyId)
                 ->orderByRaw('COALESCE(SUM(stock_quants.qty), 0) ASC')
                 ->limit(5)
                 ->select([
@@ -207,11 +219,37 @@ class DashboardService
                     'name' => $row->name,
                     'qty' => (float) $row->qty,
                     'reorder_min' => (float) $row->reorder_min,
+                    // Số lượng còn thiếu để về mức tối thiểu.
+                    'shortage' => max(0, (float) $row->reorder_min - (float) $row->qty),
                 ])
                 ->all();
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    protected function lowStockTotal(int $companyId): int
+    {
+        try {
+            if (! Schema::hasTable('products') || ! Schema::hasTable('stock_quants')) {
+                return 0;
+            }
+
+            return (int) $this->lowStockQuery($companyId)->select('products.id')->get()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /** Query gốc: hóa đơn bán đã ghi sổ, quá hạn thanh toán. */
+    protected function overdueInvoicesQuery(int $companyId)
+    {
+        return DB::table('invoices')
+            ->where('invoices.company_id', $companyId)
+            ->where('invoices.type', 'sale')
+            ->where('invoices.status', 'posted')
+            ->whereNotNull('invoices.due_date')
+            ->where('invoices.due_date', '<', now()->toDateString());
     }
 
     protected function overdueInvoices(int $companyId): array
@@ -221,27 +259,62 @@ class DashboardService
                 return [];
             }
 
-            return DB::table('invoices')
-                ->where('company_id', $companyId)
-                ->where('type', 'sale')
-                ->where('status', 'posted')
-                ->whereNotNull('due_date')
-                ->where('due_date', '<', now()->toDateString())
-                ->orderBy('due_date')
+            $query = $this->overdueInvoicesQuery($companyId);
+
+            // Tên khách hàng chỉ join khi bảng customers tồn tại.
+            $withCustomer = Schema::hasTable('customers');
+            if ($withCustomer) {
+                $query->leftJoin('customers', 'customers.id', '=', 'invoices.customer_id');
+            }
+
+            $select = ['invoices.id', 'invoices.code', 'invoices.customer_id', 'invoices.due_date', 'invoices.total_amount'];
+            if ($withCustomer) {
+                $select[] = 'customers.name as customer_name';
+            }
+
+            return $query
+                ->orderBy('invoices.due_date')
                 ->limit(5)
-                ->select(['id', 'code', 'customer_id', 'due_date', 'total_amount'])
+                ->select($select)
                 ->get()
                 ->map(fn ($row) => [
                     'id' => $row->id,
                     'code' => $row->code,
                     'customer_id' => $row->customer_id,
+                    'customer_name' => $row->customer_name ?? null,
                     'due_date' => $row->due_date,
+                    // Số ngày từ hạn thanh toán đến hôm nay.
+                    'days_overdue' => (int) \Carbon\Carbon::parse($row->due_date)->diffInDays(now()->startOfDay()),
                     'total_amount' => (float) $row->total_amount,
                 ])
                 ->all();
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    protected function overdueInvoicesTotal(int $companyId): int
+    {
+        try {
+            if (! Schema::hasTable('invoices')) {
+                return 0;
+            }
+
+            return (int) $this->overdueInvoicesQuery($companyId)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /** Query gốc: hợp đồng đang hiệu lực, hết hạn trong 30 ngày tới. */
+    protected function expiringContractsQuery(int $companyId)
+    {
+        return DB::table('contracts')
+            ->join('employees', 'employees.id', '=', 'contracts.employee_id')
+            ->where('contracts.company_id', $companyId)
+            ->where('contracts.status', 'active')
+            ->whereNotNull('contracts.end_date')
+            ->whereBetween('contracts.end_date', [now()->toDateString(), now()->addDays(30)->toDateString()]);
     }
 
     protected function expiringContracts(int $companyId): array
@@ -251,25 +324,36 @@ class DashboardService
                 return [];
             }
 
-            return DB::table('contracts')
-                ->join('employees', 'employees.id', '=', 'contracts.employee_id')
-                ->where('contracts.company_id', $companyId)
-                ->where('contracts.status', 'active')
-                ->whereNotNull('contracts.end_date')
-                ->whereBetween('contracts.end_date', [now()->toDateString(), now()->addDays(30)->toDateString()])
+            return $this->expiringContractsQuery($companyId)
                 ->orderBy('contracts.end_date')
                 ->limit(5)
-                ->select(['contracts.id', 'contracts.code', 'contracts.end_date', 'employees.full_name'])
+                ->select(['contracts.id', 'contracts.code', 'contracts.employee_id', 'contracts.end_date', 'employees.full_name'])
                 ->get()
                 ->map(fn ($row) => [
                     'id' => $row->id,
                     'code' => $row->code,
+                    'employee_id' => $row->employee_id,
                     'end_date' => $row->end_date,
                     'employee_name' => $row->full_name,
+                    // Số ngày còn lại đến ngày hết hạn.
+                    'days_left' => (int) now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($row->end_date)),
                 ])
                 ->all();
         } catch (\Throwable) {
             return [];
+        }
+    }
+
+    protected function expiringContractsTotal(int $companyId): int
+    {
+        try {
+            if (! Schema::hasTable('contracts') || ! Schema::hasTable('employees')) {
+                return 0;
+            }
+
+            return (int) $this->expiringContractsQuery($companyId)->count();
+        } catch (\Throwable) {
+            return 0;
         }
     }
 

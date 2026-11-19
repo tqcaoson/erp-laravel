@@ -44,7 +44,7 @@ Route::middleware(['web', 'auth'])->prefix('procurement')->name('procurement.')-
     Route::get('/goods-receipts/create', [GoodsReceiptController::class, 'create'])->middleware('permission:procurement.gr.create')->name('goods-receipts.create');
     Route::post('/goods-receipts', [GoodsReceiptController::class, 'store'])->middleware('permission:procurement.gr.create')->name('goods-receipts.store');
     Route::get('/goods-receipts/{goodsReceipt}', [GoodsReceiptController::class, 'show'])->middleware('permission:procurement.gr.view')->name('goods-receipts.show');
-    Route::post('/goods-receipts/{goodsReceipt}/validate', [GoodsReceiptController::class, 'validateReceipt'])->middleware('permission:procurement.gr.create')->name('goods-receipts.validate');
+    Route::post('/goods-receipts/{goodsReceipt}/validate', [GoodsReceiptController::class, 'validateReceipt'])->middleware('permission:procurement.gr.validate')->name('goods-receipts.validate');
     Route::post('/goods-receipts/{goodsReceipt}/cancel', [GoodsReceiptController::class, 'cancel'])->middleware('permission:procurement.gr.create')->name('goods-receipts.cancel');
 
     // Yêu cầu báo giá (RFQ).
@@ -73,5 +73,5 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api/v1/procurement')->name('
     Route::get('/goods-receipts', [GoodsReceiptApiController::class, 'index'])->middleware('permission:procurement.gr.view')->name('goods-receipts.index');
     Route::post('/goods-receipts', [GoodsReceiptApiController::class, 'store'])->middleware('permission:procurement.gr.create')->name('goods-receipts.store');
     Route::get('/goods-receipts/{goodsReceipt}', [GoodsReceiptApiController::class, 'show'])->middleware('permission:procurement.gr.view')->name('goods-receipts.show');
-    Route::post('/goods-receipts/{goodsReceipt}/validate', [GoodsReceiptApiController::class, 'validateReceipt'])->middleware('permission:procurement.gr.create')->name('goods-receipts.validate');
+    Route::post('/goods-receipts/{goodsReceipt}/validate', [GoodsReceiptApiController::class, 'validateReceipt'])->middleware('permission:procurement.gr.validate')->name('goods-receipts.validate');
 });

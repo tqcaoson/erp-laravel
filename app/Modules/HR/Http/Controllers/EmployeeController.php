@@ -2,6 +2,7 @@
 
 namespace App\Modules\HR\Http\Controllers;
 
+use App\Models\User;
 use App\Modules\HR\Models\Department;
 use App\Modules\HR\Models\Employee;
 use App\Modules\HR\Models\Position;
@@ -16,6 +17,8 @@ class EmployeeController extends Controller
     public function index(Request $request)
     {
         $query = Employee::with(['department', 'position'])
+            // Lọc "Đã xóa": chỉ liệt kê nhân viên đã xóa mềm (để khôi phục).
+            ->when($request->boolean('trashed'), fn ($q) => $q->onlyTrashed())
             ->when($request->input('search'), fn ($q, $search) => $q->where(function ($q) use ($search) {
                 $q->where('full_name', 'like', "%{$search}%")
                     ->orWhere('code', 'like', "%{$search}%")
@@ -34,7 +37,8 @@ class EmployeeController extends Controller
         return Inertia::render('HR/Employees/Index', [
             'employees' => $query->paginate(15)->withQueryString(),
             'departments' => Department::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'filters' => $request->only(['search', 'filter', 'sort']),
+            'filters' => $request->only(['search', 'filter', 'sort', 'trashed']),
+            'trashed' => $request->boolean('trashed'),
         ]);
     }
 
@@ -43,6 +47,7 @@ class EmployeeController extends Controller
         return Inertia::render('HR/Employees/Create', [
             'departments' => Department::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'positions' => Position::orderBy('name')->get(['id', 'name']),
+            'users' => User::orderBy('name')->get(['id', 'name', 'email']),
         ]);
     }
 
@@ -77,6 +82,7 @@ class EmployeeController extends Controller
             'employee' => $employee,
             'departments' => Department::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'positions' => Position::orderBy('name')->get(['id', 'name']),
+            'users' => User::orderBy('name')->get(['id', 'name', 'email']),
         ]);
     }
 
@@ -94,5 +100,37 @@ class EmployeeController extends Controller
 
         return redirect()->route('hr.employees.index')
             ->with('success', "Đã xóa nhân viên {$employee->full_name}.");
+    }
+
+    /** Cho nhân viên nghỉ việc (vô hiệu: status → resigned, giữ lại hồ sơ). */
+    public function deactivate(Employee $employee)
+    {
+        $employee->update(['status' => Employee::STATUS_RESIGNED]);
+
+        return redirect()->back()
+            ->with('success', "Đã cho nhân viên {$employee->full_name} nghỉ việc.");
+    }
+
+    /** Kích hoạt lại nhân viên đã nghỉ việc (status → active). */
+    public function reactivate(Employee $employee)
+    {
+        $employee->update(['status' => Employee::STATUS_ACTIVE]);
+
+        return redirect()->back()
+            ->with('success', "Đã kích hoạt lại nhân viên {$employee->full_name}.");
+    }
+
+    /**
+     * Khôi phục nhân viên đã xóa mềm.
+     * Nhận id thô (không dùng route model binding với class Employee)
+     * vì binding mặc định không tìm thấy bản ghi đã xóa mềm.
+     */
+    public function restore(int $employee)
+    {
+        $employee = Employee::withTrashed()->findOrFail($employee);
+        $employee->restore();
+
+        return redirect()->back()
+            ->with('success', "Đã khôi phục nhân viên {$employee->full_name}.");
     }
 }

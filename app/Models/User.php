@@ -57,6 +57,12 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class, 'role_user');
     }
 
+    /** Hồ sơ nhân viên gắn với tài khoản này (1 user tối đa 1 nhân viên). */
+    public function employee()
+    {
+        return $this->hasOne(\App\Modules\HR\Models\Employee::class, 'user_id');
+    }
+
     public function hasRole(string $role): bool
     {
         return $this->roles()->where('roles.name', $role)->exists();

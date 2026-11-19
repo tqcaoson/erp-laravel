@@ -115,7 +115,7 @@ Mật khẩu tất cả các tài khoản đều là **`password`**.
 | `banhang@erp.local` | Nhân viên bán hàng |
 | `nhansu@erp.local` | Nhân sự |
 
-Công ty demo: **Công ty TNHH Thương mại An Phát** (VND) — đã có sẵn 2 kho
+Công ty demo: **Công ty TNHH XT Mechanical** (VND) — đã có sẵn 2 kho
 (Hà Nội, TP. Hồ Chí Minh), 10 sản phẩm, tồn đầu kỳ, khách hàng
 **Công ty Minh Long** (hạn mức công nợ 50.000.000đ), 2 nhà cung cấp,
 1 báo giá + 1 đơn bán mẫu ở trạng thái nháp (đúng ví dụ trong tài liệu

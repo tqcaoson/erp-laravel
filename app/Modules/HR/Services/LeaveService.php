@@ -40,10 +40,28 @@ class LeaveService
         );
     }
 
-    /** Số ngày nghỉ (tính cả ngày bắt đầu và ngày kết thúc). */
+    /**
+     * Số ngày nghỉ làm việc (chỉ đếm T2–T6, bỏ T7/CN), tính cả ngày
+     * bắt đầu và ngày kết thúc. Đơn không có ngày làm việc nào
+     * (ví dụ chỉ nghỉ T7/CN) sẽ bị từ chối bằng DomainException.
+     */
     public function countDays(string $startDate, string $endDate): float
     {
-        return Carbon::parse($startDate)->diffInDays(Carbon::parse($endDate)) + 1;
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->startOfDay();
+
+        $days = 0;
+        for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
+            if (! $day->isWeekend()) {
+                $days++;
+            }
+        }
+
+        if ($days === 0) {
+            throw new DomainException('Đơn nghỉ phải có ít nhất 1 ngày làm việc (thứ 2–thứ 6).');
+        }
+
+        return (float) $days;
     }
 
     /**

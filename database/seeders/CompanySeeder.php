@@ -14,11 +14,11 @@ class CompanySeeder extends Seeder
         Company::firstOrCreate(
             ['tax_code' => '0101234567'],
             [
-                'name' => 'Công ty TNHH Thương mại An Phát',
+                'name' => 'Công ty TNHH XT Mechanical',
                 'base_currency' => 'VND',
                 'address' => 'Số 12, đường Nguyễn Trãi, quận Thanh Xuân, Hà Nội',
                 'phone' => '024 3556 7890',
-                'email' => 'lienhe@anphat.local',
+                'email' => 'lienhe@xtmechanical.local',
             ],
         );
 

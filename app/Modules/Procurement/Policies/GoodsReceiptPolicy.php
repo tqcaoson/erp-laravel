@@ -25,6 +25,6 @@ class GoodsReceiptPolicy
 
     public function validate(User $user, GoodsReceipt $receipt): bool
     {
-        return $user->hasPermission('procurement.gr.create');
+        return $user->hasPermission('procurement.gr.validate');
     }
 }

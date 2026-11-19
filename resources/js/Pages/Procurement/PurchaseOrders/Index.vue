@@ -7,6 +7,7 @@
             </Link>
         </div>
         <form @submit.prevent="search" class="flex flex-wrap gap-3">
+            <input v-model="form.search" type="text" placeholder="Tìm theo mã đơn..." class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" />
             <select v-model="form.supplier_id" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
                 <option value="">— Tất cả nhà cung cấp —</option>
                 <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
@@ -61,6 +62,7 @@ const columns = [
 ];
 
 const form = reactive({
+    search: props.filters.search ?? '',
     supplier_id: props.filters.supplier_id ?? '',
     filter: { status: props.filters.filter?.status ?? '' },
 });

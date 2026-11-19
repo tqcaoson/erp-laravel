@@ -34,7 +34,11 @@ class DashboardController extends Controller
                     'stock_value' => 0, 'receivables' => 0,
                     'active_employees' => 0, 'pending_leave_requests' => 0,
                 ],
-                'alerts' => ['low_stock' => [], 'overdue_invoices' => [], 'expiring_contracts' => []],
+                'alerts' => [
+                    'low_stock' => [], 'low_stock_total' => 0,
+                    'overdue_invoices' => [], 'overdue_invoices_total' => 0,
+                    'expiring_contracts' => [], 'expiring_contracts_total' => 0,
+                ],
                 'monthlyRevenue' => [],
             ]);
         }
@@ -54,14 +58,17 @@ class DashboardController extends Controller
         if (! $user->hasPermission('inventory.stock.view')) {
             unset($kpi['stock_value']);
             $alerts['low_stock'] = [];
+            $alerts['low_stock_total'] = 0;
         }
         if (! $user->hasPermission('accounting.invoice.view')) {
             unset($kpi['receivables']);
             $alerts['overdue_invoices'] = [];
+            $alerts['overdue_invoices_total'] = 0;
         }
         if (! $user->hasPermission('hr.employee.view')) {
             unset($kpi['active_employees']);
             $alerts['expiring_contracts'] = [];
+            $alerts['expiring_contracts_total'] = 0;
         }
         if (! $user->hasPermission('hr.leave.view')) {
             unset($kpi['pending_leave_requests']);

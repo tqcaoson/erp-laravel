@@ -33,6 +33,15 @@ class AuthController
             ])->onlyInput('email');
         }
 
+        // Tài khoản đã bị vô hiệu thì không được đăng nhập, dù mật khẩu đúng.
+        if (! (bool) Auth::user()->is_active) {
+            Auth::logout();
+
+            return back()->withErrors([
+                'email' => 'Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.',
+            ])->onlyInput('email');
+        }
+
         $request->session()->regenerate();
 
         // Chọn công ty mặc định cho phiên làm việc.

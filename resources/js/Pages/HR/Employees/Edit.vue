@@ -58,6 +58,16 @@
                 </div>
             </div>
 
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Tài khoản đăng nhập</label>
+                <select v-model="form.user_id" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                    <option :value="null">— Không gắn tài khoản —</option>
+                    <option v-for="u in users" :key="u.id" :value="u.id">{{ u.name }} ({{ u.email }})</option>
+                </select>
+                <p class="mt-1 text-xs text-slate-500">Gắn tài khoản để nhân viên này đăng nhập hệ thống (chấm công, xin nghỉ phép…).</p>
+                <p v-if="form.errors.user_id" class="mt-1 text-sm text-red-600">{{ form.errors.user_id }}</p>
+            </div>
+
             <div class="flex justify-end gap-2 pt-2">
                 <Link :href="route('hr.employees.show', employee.id)" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Hủy</Link>
                 <button type="submit" :disabled="form.processing" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
@@ -75,6 +85,7 @@ const props = defineProps({
     employee: { type: Object, required: true },
     departments: { type: Array, default: () => [] },
     positions: { type: Array, default: () => [] },
+    users: { type: Array, default: () => [] },
 });
 
 const form = useForm({
@@ -83,6 +94,7 @@ const form = useForm({
     phone: props.employee.phone ?? '',
     department_id: props.employee.department_id,
     position_id: props.employee.position_id ?? null,
+    user_id: props.employee.user_id ?? null,
     hire_date: props.employee.hire_date ? String(props.employee.hire_date).slice(0, 10) : '',
     base_salary: props.employee.base_salary ?? 0,
     status: props.employee.status,

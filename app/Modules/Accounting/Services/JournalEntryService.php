@@ -108,24 +108,37 @@ class JournalEntryService implements JournalPostingInterface
      * ngay, bút toán gốc chuyển sang trạng thái reversed. Bút toán gốc
      * không bị sửa hay xóa (giữ lại để đối chiếu).
      *
-     * @throws DomainException khi bút toán chưa ghi sổ hoặc kỳ hiện tại đã khóa.
+     * Kiểm tra trạng thái nằm TRONG transaction sau khi đọc lại bút toán
+     * có khóa hàng (FOR UPDATE) để 2 lần đảo đồng thời không cùng vượt qua
+     * kiểm tra. Bút toán đảo (source_type là JournalEntry) không được đảo
+     * tiếp — muốn hoàn tác thì đảo bút toán gốc.
+     *
+     * @throws DomainException khi bút toán chưa ghi sổ, đã bị đảo, là bút
+     *                         toán đảo, hoặc kỳ hiện tại đã khóa.
      */
     public function reverse(JournalEntry $entry, ?string $reversalDate = null): JournalEntry
     {
-        if ($entry->status !== JournalEntry::STATUS_POSTED) {
-            throw new DomainException('Chỉ đảo được bút toán đã ghi sổ.');
-        }
-
-        $entry->loadMissing('lines');
         $reversalDate ??= now()->toDateString();
 
         return DB::transaction(function () use ($entry, $reversalDate) {
+            // Đọc lại có khóa hàng trước khi kiểm tra trạng thái (chống race condition).
+            $locked = JournalEntry::query()->whereKey($entry->id)->lockForUpdate()->firstOrFail();
+            $locked->loadMissing('lines');
+
+            if ($locked->status !== JournalEntry::STATUS_POSTED) {
+                throw new DomainException('Chỉ đảo được bút toán đã ghi sổ.');
+            }
+
+            if ($locked->source_type === JournalEntry::class) {
+                throw new DomainException('Đây là bút toán đảo nên không đảo được nữa.');
+            }
+
             $reversal = $this->create([
                 'entry_date' => $reversalDate,
-                'description' => "Đảo bút toán {$entry->code}".($entry->description ? " — {$entry->description}" : ''),
+                'description' => "Đảo bút toán {$locked->code}".($locked->description ? " — {$locked->description}" : ''),
                 'source_type' => JournalEntry::class,
-                'source_id' => $entry->id,
-                'lines' => $entry->lines->map(fn ($line) => [
+                'source_id' => $locked->id,
+                'lines' => $locked->lines->map(fn ($line) => [
                     'account_id' => $line->account_id,
                     'partner_type' => $line->partner_type,
                     'partner_id' => $line->partner_id,
@@ -134,11 +147,11 @@ class JournalEntryService implements JournalPostingInterface
                     'credit' => $line->debit,
                     'description' => $line->description,
                 ])->all(),
-            ], $entry->company_id);
+            ], $locked->company_id);
 
             $this->postEntry($reversal);
 
-            $entry->update([
+            $locked->update([
                 'status' => JournalEntry::STATUS_REVERSED,
                 'reversed_by_id' => $reversal->id,
             ]);

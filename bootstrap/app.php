@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Http\Middleware\CheckPermission;
+use App\Core\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Providers\ModuleServiceProvider;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Inertia chạy trong nhóm web để mọi trang đều nhận được shared props.
         $middleware->web(append: [
             HandleInertiaRequests::class,
+            // Đá user bị vô hiệu ra ngay ở request tiếp theo (kể cả khi
+            // đang đăng nhập); chỉ tác động khi đã có user đăng nhập.
+            EnsureUserIsActive::class,
         ]);
 
         // Middleware phân quyền theo permission dạng "module.action", dùng: permission:sales.order.create

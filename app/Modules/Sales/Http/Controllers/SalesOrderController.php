@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Modules\Sales\Models\Customer;
 use App\Modules\Sales\Models\SalesOrder;
 use App\Modules\Sales\Requests\StoreSalesOrderRequest;
+use App\Modules\Sales\Requests\UpdateSalesOrderRequest;
+use App\Modules\Sales\Services\DeliveryOrderService;
 use App\Modules\Sales\Services\SalesOrderService;
 use App\Modules\Sales\Support\CatalogLookup;
 use DomainException;
@@ -17,7 +19,10 @@ class SalesOrderController extends Controller
 {
     use CatalogLookup;
 
-    public function __construct(protected SalesOrderService $salesOrders) {}
+    public function __construct(
+        protected SalesOrderService $salesOrders,
+        protected DeliveryOrderService $deliveryOrders,
+    ) {}
 
     public function index(Request $request)
     {
@@ -58,15 +63,7 @@ class SalesOrderController extends Controller
             : [];
 
         // Hạn mức công nợ còn lại của từng khách (để hiển thị khi chọn khách).
-        $customers = Customer::orderBy('name')->get()->map(function (Customer $customer) {
-            return [
-                'id' => $customer->id,
-                'name' => $customer->name,
-                'credit_limit' => (float) $customer->credit_limit,
-                'current_debt' => $customer->currentDebt(),
-                'remaining_credit' => $customer->remainingCredit(),
-            ];
-        });
+        $customers = $this->customersWithCredit();
 
         return Inertia::render('Sales/SalesOrders/Create', [
             'customers' => $customers,
@@ -81,6 +78,39 @@ class SalesOrderController extends Controller
         $order = $this->salesOrders->create($request->validated());
 
         return redirect()->route('sales.orders.show', $order)->with('success', "Đã tạo đơn bán {$order->code}.");
+    }
+
+    /** Form sửa đơn bán — chỉ đơn nháp mới sửa được. */
+    public function edit(SalesOrder $order)
+    {
+        if ($order->status !== 'draft') {
+            return redirect()->route('sales.orders.show', $order)
+                ->with('error', 'Chỉ sửa được đơn bán ở trạng thái nháp.');
+        }
+
+        $order->load('lines');
+        $warehouses = $this->warehouseList();
+        $products = $this->productList();
+        $stockMap = $this->stockMap((int) $order->warehouse_id, collect($products)->pluck('id')->all());
+
+        return Inertia::render('Sales/SalesOrders/Edit', [
+            'order' => $order,
+            'customers' => $this->customersWithCredit(),
+            'warehouses' => $warehouses,
+            'products' => $products,
+            'stockMap' => $stockMap,
+        ]);
+    }
+
+    public function update(UpdateSalesOrderRequest $request, SalesOrder $order)
+    {
+        try {
+            $order = $this->salesOrders->update($order, $request->validated());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('sales.orders.show', $order)->with('success', "Đã cập nhật đơn bán {$order->code}.");
     }
 
     public function show(SalesOrder $order)
@@ -157,5 +187,49 @@ class SalesOrderController extends Controller
         }
 
         return back()->with('success', 'Đã hủy đơn bán.');
+    }
+
+    /** Tạo phiếu giao nháp cho phần còn thiếu của đơn (giao nốt). */
+    public function deliverRemaining(SalesOrder $order)
+    {
+        try {
+            $result = $this->deliveryOrders->createForRemaining($order);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $message = "Đã tạo phiếu giao {$result['order']->code} cho phần còn lại của đơn bán.";
+        if ($result['warnings'] !== []) {
+            $message .= ' Lưu ý: '.implode(' ', $result['warnings']);
+        }
+
+        return redirect()->route('sales.deliveries.show', $result['order'])->with('success', $message);
+    }
+
+    /** Lập hóa đơn nháp từ phần đã giao chưa lập hóa đơn của đơn bán. */
+    public function createInvoice(SalesOrder $order)
+    {
+        try {
+            $invoiceId = $this->salesOrders->createInvoiceFromDelivered($order);
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('accounting.invoices.show', $invoiceId)
+            ->with('success', "Đã lập hóa đơn nháp từ phần đã giao của đơn bán {$order->code}.");
+    }
+
+    /** Danh sách khách kèm hạn mức/công nợ còn lại (hiển thị trên form đơn). */
+    protected function customersWithCredit()
+    {
+        return Customer::orderBy('name')->get()->map(function (Customer $customer) {
+            return [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'credit_limit' => (float) $customer->credit_limit,
+                'current_debt' => $customer->currentDebt(),
+                'remaining_credit' => $customer->remainingCredit(),
+            ];
+        });
     }
 }

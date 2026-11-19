@@ -4,6 +4,7 @@ use App\Modules\Manufacturing\Http\Controllers\BomApiController;
 use App\Modules\Manufacturing\Http\Controllers\BomController;
 use App\Modules\Manufacturing\Http\Controllers\ManufacturingOrderApiController;
 use App\Modules\Manufacturing\Http\Controllers\ManufacturingOrderController;
+use App\Modules\Manufacturing\Http\Controllers\RoutingController;
 use App\Modules\Manufacturing\Http\Controllers\WorkCenterController;
 use App\Modules\Manufacturing\Http\Controllers\WorkOrderController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,12 @@ Route::middleware(['web', 'auth'])->prefix('manufacturing')->name('manufacturing
     Route::post('/work-centers', [WorkCenterController::class, 'store'])->middleware('permission:manufacturing.workcenter.manage')->name('work-centers.store');
     Route::get('/work-centers/{workCenter}/edit', [WorkCenterController::class, 'edit'])->middleware('permission:manufacturing.workcenter.manage')->name('work-centers.edit');
     Route::put('/work-centers/{workCenter}', [WorkCenterController::class, 'update'])->middleware('permission:manufacturing.workcenter.manage')->name('work-centers.update');
+
+    // Quy trình sản xuất (routing)
+    Route::get('/routings', [RoutingController::class, 'index'])->middleware('permission:manufacturing.routing.view')->name('routings.index');
+    Route::get('/routings/create', [RoutingController::class, 'create'])->middleware('permission:manufacturing.routing.manage')->name('routings.create');
+    Route::post('/routings', [RoutingController::class, 'store'])->middleware('permission:manufacturing.routing.manage')->name('routings.store');
+    Route::get('/routings/{routing}', [RoutingController::class, 'show'])->middleware('permission:manufacturing.routing.view')->name('routings.show');
 
     // Công đoạn sản xuất
     Route::get('/work-orders', [WorkOrderController::class, 'index'])->middleware('permission:manufacturing.mo.view')->name('work-orders.index');

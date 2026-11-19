@@ -38,7 +38,8 @@
                 </div>
             </div>
 
-            <p v-if="dayCount > 0" class="text-sm text-slate-600">Số ngày nghỉ (tính cả ngày đầu và cuối): <span class="font-semibold text-slate-900">{{ dayCount }} ngày</span></p>
+            <p v-if="dayCount > 0" class="text-sm text-slate-600">Số ngày nghỉ làm việc (chỉ tính thứ 2–thứ 6, không tính cuối tuần): <span class="font-semibold text-slate-900">{{ dayCount }} ngày</span></p>
+            <p v-else-if="form.start_date && form.end_date" class="text-sm text-red-600">Khoảng ngày đã chọn không có ngày làm việc nào (chỉ có thứ 7/chủ nhật).</p>
 
             <div>
                 <label class="mb-1 block text-sm font-medium text-slate-700">Lý do</label>
@@ -71,10 +72,18 @@ const form = useForm({
     reason: '',
 });
 
+/** Số ngày làm việc (T2–T6) trong khoảng đã chọn, khớp với LeaveService::countDays(). */
 const dayCount = computed(() => {
     if (!form.start_date || !form.end_date) return 0;
-    const diff = (new Date(form.end_date) - new Date(form.start_date)) / 86400000 + 1;
-    return diff > 0 ? diff : 0;
+    const start = new Date(form.start_date);
+    const end = new Date(form.end_date);
+    if (end < start) return 0;
+    let count = 0;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const weekday = d.getDay(); // 0 = CN, 6 = T7
+        if (weekday !== 0 && weekday !== 6) count++;
+    }
+    return count;
 });
 
 function submit() {

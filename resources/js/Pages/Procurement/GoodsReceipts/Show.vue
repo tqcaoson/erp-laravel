@@ -13,7 +13,7 @@
                 </p>
             </div>
             <div class="flex gap-2">
-                <button v-if="receipt.status === 'draft'" @click="validateReceipt" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+                <button v-if="receipt.status === 'draft' && can('procurement.gr.validate')" @click="validateReceipt" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
                     Xác nhận nhận hàng
                 </button>
                 <button v-if="receipt.status === 'draft'" @click="cancel" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -36,9 +36,11 @@ import { Link, router } from '@inertiajs/vue3';
 import DataTable from '../../../Components/DataTable.vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { useFormat } from '../../../composables/useFormat.js';
+import { usePermission } from '../../../composables/usePermission.js';
 
 const props = defineProps({ receipt: { type: Object, required: true } });
 const { money, number, date } = useFormat();
+const { can } = usePermission();
 
 const columns = [
     { key: 'product', label: 'Sản phẩm' },

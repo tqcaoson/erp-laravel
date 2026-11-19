@@ -9,6 +9,13 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <StatusBadge :status="order.status" />
+                <Link
+                    v-if="order.status === 'draft' && can('sales.order.create')"
+                    :href="route('sales.orders.edit', order.id)"
+                    class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                    Sửa
+                </Link>
                 <button
                     v-if="order.status === 'draft' && can('sales.order.confirm')"
                     class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
@@ -22,6 +29,20 @@
                     @click="postAction('approve')"
                 >
                     Duyệt đơn
+                </button>
+                <button
+                    v-if="['confirmed', 'partially_delivered'].includes(order.status) && hasRemaining && can('sales.delivery.validate')"
+                    class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                    @click="postAction('deliver-remaining')"
+                >
+                    Giao phần còn lại
+                </button>
+                <button
+                    v-if="['partially_delivered', 'delivered', 'invoiced'].includes(order.status) && hasUninvoiced && can('accounting.invoice.create')"
+                    class="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+                    @click="postAction('create-invoice')"
+                >
+                    Lập hóa đơn
                 </button>
                 <button
                     v-if="['draft', 'pending_approval', 'confirmed'].includes(order.status) && can('sales.order.confirm')"
@@ -110,6 +131,7 @@
 
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import DataTable from '../../../Components/DataTable.vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { useFormat } from '../../../composables/useFormat';
@@ -122,6 +144,16 @@ const props = defineProps({
 
 const { money, date, number } = useFormat();
 const { can } = usePermission();
+
+// Còn thiếu ở ít nhất 1 dòng → hiện nút "Giao phần còn lại".
+const hasRemaining = computed(() =>
+    (props.order.lines ?? []).some((line) => Number(line.qty) - Number(line.delivered_qty) > 0),
+);
+
+// Còn phần đã giao chưa lập hóa đơn → hiện nút "Lập hóa đơn".
+const hasUninvoiced = computed(() =>
+    (props.order.lines ?? []).some((line) => Number(line.delivered_qty) - Number(line.invoiced_qty ?? 0) > 0),
+);
 
 function postAction(action) {
     router.post(route(`sales.orders.${action}`, props.order.id), {}, { preserveScroll: true });

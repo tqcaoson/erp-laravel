@@ -31,13 +31,17 @@ class PurchaseOrderController extends Controller
             $query->where('supplier_id', $request->input('supplier_id'));
         }
 
+        if ($search = $request->input('search')) {
+            $query->where('code', 'like', "%{$search}%");
+        }
+
         $this->applyFilters($query, $request, ['status']);
         $this->applySort($query, $request, ['code', 'total_amount', 'order_date', 'created_at']);
 
         return Inertia::render('Procurement/PurchaseOrders/Index', [
             'orders' => $query->paginate($this->perPage($request))->withQueryString(),
             'suppliers' => Supplier::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
-            'filters' => $request->only(['supplier_id', 'sort', 'filter']),
+            'filters' => $request->only(['supplier_id', 'search', 'sort', 'filter']),
         ]);
     }
 

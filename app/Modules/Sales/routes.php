@@ -42,6 +42,8 @@ Route::middleware(['web', 'auth'])->prefix('sales')->name('sales.')->group(funct
     Route::get('/quotations/create', [QuotationController::class, 'create'])->middleware('permission:sales.quotation.create')->name('quotations.create');
     Route::post('/quotations', [QuotationController::class, 'store'])->middleware('permission:sales.quotation.create')->name('quotations.store');
     Route::get('/quotations/{quotation}', [QuotationController::class, 'show'])->middleware('permission:sales.quotation.view')->name('quotations.show');
+    Route::get('/quotations/{quotation}/edit', [QuotationController::class, 'edit'])->middleware('permission:sales.quotation.create')->name('quotations.edit');
+    Route::put('/quotations/{quotation}', [QuotationController::class, 'update'])->middleware('permission:sales.quotation.create')->name('quotations.update');
     Route::post('/quotations/{quotation}/status', [QuotationController::class, 'setStatus'])->middleware('permission:sales.quotation.create')->name('quotations.status');
     Route::post('/quotations/{quotation}/convert', [QuotationController::class, 'convert'])->middleware('permission:sales.order.create')->name('quotations.convert');
 
@@ -53,9 +55,13 @@ Route::middleware(['web', 'auth'])->prefix('sales')->name('sales.')->group(funct
     Route::get('/orders/create', [SalesOrderController::class, 'create'])->middleware('permission:sales.order.create')->name('orders.create');
     Route::post('/orders', [SalesOrderController::class, 'store'])->middleware('permission:sales.order.create')->name('orders.store');
     Route::get('/orders/{order}', [SalesOrderController::class, 'show'])->middleware('permission:sales.order.view')->name('orders.show');
+    Route::get('/orders/{order}/edit', [SalesOrderController::class, 'edit'])->middleware('permission:sales.order.create')->name('orders.edit');
+    Route::put('/orders/{order}', [SalesOrderController::class, 'update'])->middleware('permission:sales.order.create')->name('orders.update');
     Route::post('/orders/{order}/confirm', [SalesOrderController::class, 'confirm'])->middleware('permission:sales.order.confirm')->name('orders.confirm');
     Route::post('/orders/{order}/approve', [SalesOrderController::class, 'approve'])->middleware('permission:sales.order.approve')->name('orders.approve');
     Route::post('/orders/{order}/cancel', [SalesOrderController::class, 'cancel'])->middleware('permission:sales.order.confirm')->name('orders.cancel');
+    Route::post('/orders/{order}/deliver-remaining', [SalesOrderController::class, 'deliverRemaining'])->middleware('permission:sales.delivery.validate')->name('orders.deliver-remaining');
+    Route::post('/orders/{order}/create-invoice', [SalesOrderController::class, 'createInvoice'])->middleware('permission:accounting.invoice.create')->name('orders.create-invoice');
 
     // Phiếu giao hàng
     Route::get('/deliveries', [DeliveryOrderController::class, 'index'])->middleware('permission:sales.delivery.view')->name('deliveries.index');

@@ -71,6 +71,185 @@ class SalesOrderService
     }
 
     /**
+     * Sửa đơn bán — CHỈ khi còn ở trạng thái nháp. Đơn đã xác nhận trở đi
+     * (đã phát sinh phiếu giao / công nợ) tuyệt đối không được sửa nội dung.
+     *
+     * Đồng bộ dòng theo id: dòng có id thì cập nhật, dòng không id thì thêm
+     * mới, dòng cũ vắng mặt trong request thì xóa. Tổng tiền tính lại qua
+     * DocumentTotals. Toàn bộ chạy trong 1 transaction.
+     */
+    public function update(SalesOrder $order, array $data): SalesOrder
+    {
+        if ($order->status !== 'draft') {
+            throw new DomainException('Chỉ sửa được đơn bán ở trạng thái nháp.');
+        }
+
+        $totals = DocumentTotals::compute($data['lines'] ?? [], (float) ($data['discount_amount'] ?? 0));
+
+        return DB::transaction(function () use ($order, $data, $totals) {
+            $order->update([
+                'customer_id' => $data['customer_id'],
+                'warehouse_id' => $data['warehouse_id'],
+                'order_date' => $data['order_date'] ?? $order->order_date,
+                'subtotal' => $totals['subtotal'],
+                'discount_amount' => (float) ($data['discount_amount'] ?? 0),
+                'tax_amount' => $totals['tax_amount'],
+                'total_amount' => $totals['total_amount'],
+                'note' => $data['note'] ?? null,
+            ]);
+
+            $keptIds = [];
+
+            foreach ($totals['lines'] as $line) {
+                $attributes = [
+                    'product_id' => $line['product_id'],
+                    'qty' => $line['qty'],
+                    'unit_price' => $line['unit_price'],
+                    'discount_rate' => $line['discount_rate'],
+                    'tax_rate' => $line['tax_rate'],
+                    'line_total' => $line['line_total'],
+                ];
+
+                if (! empty($line['id'])) {
+                    $existing = $order->lines()->whereKey((int) $line['id'])->first();
+
+                    if (! $existing) {
+                        throw new DomainException("Dòng #{$line['id']} không thuộc đơn bán này.");
+                    }
+
+                    $existing->update($attributes);
+                    $keptIds[] = $existing->id;
+                } else {
+                    $keptIds[] = $order->lines()->create($attributes)->id;
+                }
+            }
+
+            // Dòng cũ vắng mặt trong request thì xóa.
+            $order->lines()->whereNotIn('id', $keptIds)->delete();
+
+            return $order->fresh(['lines']);
+        });
+    }
+
+    /**
+     * Lập hóa đơn nháp từ phần đã giao chưa lập hóa đơn của đơn bán.
+     *
+     * Mỗi dòng hóa đơn lấy (delivered_qty − invoiced_qty) × đơn giá của
+     * dòng đơn, giữ nguyên thuế suất và chiết khấu dòng (chiết khấu gộp
+     * vào đơn giá vì dòng hóa đơn không có cột chiết khấu riêng).
+     * Hóa đơn gắn source_type/source_id về đơn bán để khi ghi sổ, listener
+     * MarkSalesOrderInvoiced đánh dấu đơn thành "đã lập hóa đơn".
+     *
+     * @return int id hóa đơn nháp vừa tạo
+     *
+     * @throws DomainException khi đơn chưa giao hàng, đã lập hóa đơn hết
+     *                         phần đã giao, hoặc module Kế toán chưa khả dụng.
+     */
+    public function createInvoiceFromDelivered(SalesOrder $order): int
+    {
+        if (in_array($order->status, ['draft', 'pending_approval', 'cancelled', 'closed'], true)) {
+            throw new DomainException('Đơn bán chưa giao hàng nên chưa lập được hóa đơn.');
+        }
+
+        $order->loadMissing(['lines', 'customer']);
+
+        $billable = [];
+        foreach ($order->lines as $line) {
+            $qty = $line->billableQty();
+
+            if ($qty > 0) {
+                $billable[] = ['line' => $line, 'qty' => $qty];
+            }
+        }
+
+        if ($billable === []) {
+            // Phân biệt: chưa giao gì cả vs đã giao nhưng đã lập hóa đơn hết.
+            $deliveredTotal = $order->lines->sum(fn ($line) => (float) $line->delivered_qty);
+
+            if ($deliveredTotal <= 0) {
+                throw new DomainException('Đơn bán chưa giao hàng nên chưa lập được hóa đơn.');
+            }
+
+            throw new DomainException('Đơn bán không còn phần đã giao nào chưa lập hóa đơn.');
+        }
+
+        if (! class_exists(\App\Modules\Accounting\Services\InvoiceService::class)) {
+            throw new DomainException('Module Kế toán chưa khả dụng nên chưa lập được hóa đơn.');
+        }
+
+        // Tên sản phẩm cho diễn giải dòng hóa đơn (đọc bằng query builder,
+        // không import model của Inventory — theo quy tắc phụ thuộc module).
+        $productNames = DB::table('products')
+            ->whereIn('id', collect($billable)->map(fn ($item) => (int) $item['line']->product_id)->all())
+            ->pluck('name', 'id');
+
+        // Chiết khấu cấp đơn (discount_amount) cũng phải trừ vào hóa đơn:
+        // dòng hóa đơn không có cột chiết khấu nên gộp theo tỷ lệ vào đơn giá
+        // (cùng cách xử lý chiết khấu dòng). Hệ số = 1 − chiết khấu / subtotal
+        // của cả đơn; lập hóa đơn từng phần thì mỗi hóa đơn trừ đúng phần
+        // chiết khấu tương ứng với phần đã giao của nó, cộng đủ các lần
+        // lập sẽ bằng đúng chiết khấu của đơn. Thuế GTGT tính trên giá
+        // đã trừ chiết khấu (đúng căn cứ tính thuế của hóa đơn).
+        $orderSubtotal = $order->lines->sum(
+            fn ($l) => (float) $l->qty * (float) $l->unit_price * (1 - (float) $l->discount_rate / 100)
+        );
+        $orderDiscount = (float) $order->discount_amount;
+        $orderDiscountFactor = 1.0;
+        if ($orderDiscount > 0 && $orderSubtotal > 0) {
+            $orderDiscountFactor = 1 - min($orderDiscount, $orderSubtotal) / $orderSubtotal;
+        }
+
+        $invoiceLines = [];
+        foreach ($billable as $item) {
+            $line = $item['line'];
+            $discountRate = (float) $line->discount_rate;
+            // Gộp chiết khấu dòng + chiết khấu cấp đơn vào đơn giá
+            // (dòng hóa đơn không có cột chiết khấu).
+            $unitPrice = round((float) $line->unit_price * (1 - $discountRate / 100) * $orderDiscountFactor, 2);
+            $name = $productNames[(int) $line->product_id] ?? ('Sản phẩm #'.$line->product_id);
+            $description = $discountRate > 0
+                ? "{$name} — đã trừ chiết khấu {$discountRate}%"
+                : $name;
+            if ($orderDiscountFactor < 1) {
+                $description .= ' — đã trừ chiết khấu đơn bán';
+            }
+
+            $invoiceLines[] = [
+                'product_id' => (int) $line->product_id,
+                'description' => $description,
+                'qty' => $item['qty'],
+                'unit_price' => $unitPrice,
+                'tax_rate' => (float) $line->tax_rate,
+            ];
+        }
+
+        $dueDate = null;
+        $termDays = (int) ($order->customer->payment_term_days ?? 0);
+        if ($termDays > 0) {
+            $dueDate = now()->addDays($termDays)->toDateString();
+        }
+
+        return DB::transaction(function () use ($order, $billable, $invoiceLines, $dueDate) {
+            $invoice = app(\App\Modules\Accounting\Services\InvoiceService::class)->create([
+                'type' => 'sale',
+                'customer_id' => (int) $order->customer_id,
+                'source_type' => SalesOrder::class,
+                'source_id' => $order->id,
+                'invoice_date' => now()->toDateString(),
+                'due_date' => $dueDate,
+                'lines' => $invoiceLines,
+            ], (int) $order->company_id);
+
+            // Ghi nhận phần vừa lập hóa đơn để lần sau không lập trùng.
+            foreach ($billable as $item) {
+                $item['line']->increment('invoiced_qty', $item['qty']);
+            }
+
+            return $invoice->id;
+        });
+    }
+
+    /**
      * Xác nhận đơn bán (draft → confirmed).
      *
      * (a) Hạn mức công nợ: nếu công nợ hiện tại + tổng đơn vượt credit_limit

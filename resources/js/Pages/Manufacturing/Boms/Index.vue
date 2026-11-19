@@ -11,6 +11,17 @@
             </Link>
         </div>
 
+        <form class="flex flex-wrap gap-2" @submit.prevent="applyFilters">
+            <select v-model="form.is_active" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                <option value="">Tất cả trạng thái</option>
+                <option value="1">Đang hoạt động</option>
+                <option value="0">Ngừng hoạt động</option>
+            </select>
+            <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+                Lọc
+            </button>
+        </form>
+
         <DataTable :columns="columns" :items="boms" empty-text="Chưa có định mức nào.">
             <template #cell-code="{ row }">
                 <Link :href="route('manufacturing.boms.show', row.id)" class="font-medium text-blue-600 hover:underline">
@@ -28,17 +39,20 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
+import { reactive } from 'vue';
 import DataTable from '../../../Components/DataTable.vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { usePermission } from '../../../composables/usePermission';
 
-defineProps({
+const props = defineProps({
     boms: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
 });
 
 const { can } = usePermission();
+
+const form = reactive({ is_active: props.filters.filter?.is_active ?? '' });
 
 const columns = [
     { key: 'code', label: 'Mã BOM', sortable: true },
@@ -47,4 +61,8 @@ const columns = [
     { key: 'lines_count', label: 'Số dòng NL' },
     { key: 'is_active', label: 'Trạng thái' },
 ];
+
+function applyFilters() {
+    router.get(route('manufacturing.boms.index'), { 'filter[is_active]': form.is_active === '' ? undefined : form.is_active }, { preserveState: true });
+}
 </script>

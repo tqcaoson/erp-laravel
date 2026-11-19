@@ -9,6 +9,13 @@
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <StatusBadge :status="quotation.status" />
+                <Link
+                    v-if="quotation.status === 'draft' && can('sales.quotation.create')"
+                    :href="route('sales.quotations.edit', quotation.id)"
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                    Sửa
+                </Link>
                 <template v-if="['draft', 'sent'].includes(quotation.status) && can('sales.quotation.create')">
                     <button
                         v-if="quotation.status === 'draft'"
@@ -73,7 +80,7 @@
 </template>
 
 <script setup>
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import DataTable from '../../../Components/DataTable.vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { useFormat } from '../../../composables/useFormat';

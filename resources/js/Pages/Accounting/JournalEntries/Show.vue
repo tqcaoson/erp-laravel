@@ -65,10 +65,11 @@
             </button>
             <button
                 v-if="entry.status === 'posted' && can('accounting.entry.reverse')"
+                :disabled="reversing"
                 @click="reverseEntry"
-                class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
-                Đảo bút toán
+                {{ reversing ? 'Đang đảo...' : 'Đảo bút toán' }}
             </button>
             <Link :href="route('accounting.journal-entries.index')" class="text-sm text-slate-600 hover:text-slate-800">Quay lại danh sách</Link>
         </div>
@@ -77,7 +78,7 @@
 
 <script setup>
 import { Link, router } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { useFormat } from '../../../composables/useFormat';
 import { usePermission } from '../../../composables/usePermission';
@@ -89,6 +90,9 @@ const props = defineProps({
 const format = useFormat();
 const { can } = usePermission();
 
+// Chống bấm đôi nút đảo trong lúc request đang chạy.
+const reversing = ref(false);
+
 const totalDebit = computed(() => props.entry.lines.reduce((sum, line) => sum + Number(line.debit), 0));
 const totalCredit = computed(() => props.entry.lines.reduce((sum, line) => sum + Number(line.credit), 0));
 const balanced = computed(() => Math.abs(totalDebit.value - totalCredit.value) <= 0.01);
@@ -98,8 +102,12 @@ function postEntry() {
 }
 
 function reverseEntry() {
+    if (reversing.value) return;
     if (confirm('Đảo bút toán này? Hệ thống sẽ sinh bút toán đảo ngược và ghi sổ ngay, bút toán gốc được giữ nguyên.')) {
-        router.post(route('accounting.journal-entries.reverse', props.entry.id));
+        reversing.value = true;
+        router.post(route('accounting.journal-entries.reverse', props.entry.id), {}, {
+            onFinish: () => { reversing.value = false; },
+        });
     }
 }
 </script>

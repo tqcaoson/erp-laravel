@@ -13,6 +13,27 @@
                 >
                     Sửa
                 </Link>
+                <button
+                    v-if="can('hr.employee.manage') && employee.status !== 'resigned'"
+                    @click="deactivate"
+                    class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-amber-600 ring-1 ring-slate-300 hover:bg-slate-50"
+                >
+                    Cho nghỉ việc
+                </button>
+                <button
+                    v-if="can('hr.employee.manage') && employee.status === 'resigned'"
+                    @click="reactivate"
+                    class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-green-600 ring-1 ring-slate-300 hover:bg-slate-50"
+                >
+                    Kích hoạt lại
+                </button>
+                <button
+                    v-if="can('hr.employee.manage')"
+                    @click="remove"
+                    class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-red-600 ring-1 ring-slate-300 hover:bg-slate-50"
+                >
+                    Xóa
+                </button>
                 <Link :href="route('hr.employees.index')" class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50">
                     Về danh sách
                 </Link>
@@ -57,16 +78,34 @@
 </template>
 
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import StatusBadge from '../../../Components/StatusBadge.vue';
 import { useFormat } from '../../../composables/useFormat.js';
 import { usePermission } from '../../../composables/usePermission.js';
 
-defineProps({
+const props = defineProps({
     employee: { type: Object, required: true },
     remainingLeaveDays: { type: [Number, String], default: 0 },
 });
 
 const { money, number, date } = useFormat();
 const { can } = usePermission();
+
+function remove() {
+    if (confirm(`Xóa nhân viên ${props.employee.full_name} (${props.employee.code})? Hồ sơ sẽ chuyển vào mục đã xóa và có thể khôi phục lại.`)) {
+        router.delete(route('hr.employees.destroy', props.employee.id));
+    }
+}
+
+function deactivate() {
+    if (confirm(`Cho nhân viên ${props.employee.full_name} (${props.employee.code}) nghỉ việc? Hồ sơ vẫn được giữ lại.`)) {
+        router.post(route('hr.employees.deactivate', props.employee.id));
+    }
+}
+
+function reactivate() {
+    if (confirm(`Kích hoạt lại nhân viên ${props.employee.full_name} (${props.employee.code})?`)) {
+        router.post(route('hr.employees.reactivate', props.employee.id));
+    }
+}
 </script>

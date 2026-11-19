@@ -87,33 +87,53 @@
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div v-if="can('inventory.stock.view')" class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
                 <h2 class="text-base font-semibold text-slate-900">Hàng dưới mức tồn tối thiểu</h2>
+                <p class="mt-1 text-xs text-slate-400">Sản phẩm sắp hết hàng — bấm vào để xem tồn kho, hoặc tạo yêu cầu mua hàng để nhập thêm.</p>
                 <ul v-if="alerts.low_stock.length" class="mt-3 space-y-2">
-                    <li v-for="p in alerts.low_stock" :key="p.id" class="flex items-center justify-between text-sm">
-                        <span class="text-slate-700">{{ p.name }} <span class="text-xs text-slate-400">({{ p.sku }})</span></span>
-                        <span class="font-medium text-red-600">{{ number(p.qty) }} / {{ number(p.reorder_min) }}</span>
+                    <li v-for="p in alerts.low_stock" :key="p.id" class="flex items-center justify-between gap-2 text-sm">
+                        <Link :href="route('inventory.stock.index', { product_id: p.id })" class="text-slate-700 hover:text-blue-600 hover:underline">
+                            {{ p.name }} <span class="text-xs text-slate-400">({{ p.sku }})</span>
+                        </Link>
+                        <span class="shrink-0 font-medium text-red-600">{{ number(p.qty) }} / {{ number(p.reorder_min) }} · thiếu {{ number(p.shortage) }}</span>
                     </li>
                 </ul>
                 <p v-else class="mt-3 text-sm text-slate-400">Không có sản phẩm nào dưới mức tối thiểu.</p>
+                <p v-if="alerts.low_stock_total > 5" class="mt-3 text-xs text-slate-400">Đang hiển thị 5 / {{ number(alerts.low_stock_total) }} mục.</p>
+                <Link
+                    v-if="can('procurement.pr.create')"
+                    :href="route('procurement.purchase-requests.create')"
+                    class="mt-3 inline-block text-xs font-medium text-blue-600 hover:underline"
+                >
+                    Tạo yêu cầu mua hàng →
+                </Link>
             </div>
             <div v-if="can('accounting.invoice.view')" class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
                 <h2 class="text-base font-semibold text-slate-900">Hóa đơn quá hạn</h2>
+                <p class="mt-1 text-xs text-slate-400">Hóa đơn bán đã quá hạn thanh toán — bấm vào để xem chi tiết và ghi nhận thanh toán.</p>
                 <ul v-if="alerts.overdue_invoices.length" class="mt-3 space-y-2">
-                    <li v-for="inv in alerts.overdue_invoices" :key="inv.id" class="flex items-center justify-between text-sm">
-                        <span class="text-slate-700">{{ inv.code }} <span class="text-xs text-slate-400">· hạn {{ date(inv.due_date) }}</span></span>
-                        <span class="font-medium text-red-600">{{ money(inv.total_amount) }}</span>
+                    <li v-for="inv in alerts.overdue_invoices" :key="inv.id" class="flex items-center justify-between gap-2 text-sm">
+                        <Link :href="route('accounting.invoices.show', inv.id)" class="text-slate-700 hover:text-blue-600 hover:underline">
+                            {{ inv.code }}
+                            <span class="text-xs text-slate-400">· {{ inv.customer_name ?? 'Khách hàng #' + inv.customer_id }} · quá hạn {{ inv.days_overdue }} ngày</span>
+                        </Link>
+                        <span class="shrink-0 font-medium text-red-600">{{ money(inv.total_amount) }}</span>
                     </li>
                 </ul>
                 <p v-else class="mt-3 text-sm text-slate-400">Không có hóa đơn quá hạn.</p>
+                <p v-if="alerts.overdue_invoices_total > 5" class="mt-3 text-xs text-slate-400">Đang hiển thị 5 / {{ number(alerts.overdue_invoices_total) }} mục.</p>
             </div>
             <div v-if="can('hr.employee.view')" class="rounded-lg bg-white p-5 shadow-sm ring-1 ring-slate-200">
                 <h2 class="text-base font-semibold text-slate-900">Hợp đồng sắp hết hạn (30 ngày)</h2>
+                <p class="mt-1 text-xs text-slate-400">Hợp đồng lao động sắp hết hạn — bấm vào để mở hồ sơ nhân viên và xem mục Hợp đồng.</p>
                 <ul v-if="alerts.expiring_contracts.length" class="mt-3 space-y-2">
-                    <li v-for="c in alerts.expiring_contracts" :key="c.id" class="flex items-center justify-between text-sm">
-                        <span class="text-slate-700">{{ c.employee_name }} <span class="text-xs text-slate-400">({{ c.code }})</span></span>
-                        <span class="font-medium text-amber-600">{{ date(c.end_date) }}</span>
+                    <li v-for="c in alerts.expiring_contracts" :key="c.id" class="flex items-center justify-between gap-2 text-sm">
+                        <Link :href="route('hr.employees.show', c.employee_id)" class="text-slate-700 hover:text-blue-600 hover:underline">
+                            {{ c.employee_name }} <span class="text-xs text-slate-400">({{ c.code }})</span>
+                        </Link>
+                        <span class="shrink-0 font-medium text-amber-600">còn {{ c.days_left }} ngày · {{ date(c.end_date) }}</span>
                     </li>
                 </ul>
                 <p v-else class="mt-3 text-sm text-slate-400">Không có hợp đồng sắp hết hạn.</p>
+                <p v-if="alerts.expiring_contracts_total > 5" class="mt-3 text-xs text-slate-400">Đang hiển thị 5 / {{ number(alerts.expiring_contracts_total) }} mục.</p>
             </div>
         </div>
     </div>

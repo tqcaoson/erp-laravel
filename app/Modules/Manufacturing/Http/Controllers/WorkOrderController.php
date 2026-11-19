@@ -3,6 +3,7 @@
 namespace App\Modules\Manufacturing\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Manufacturing\Models\ManufacturingOrder;
 use App\Modules\Manufacturing\Models\WorkOrder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -25,6 +26,7 @@ class WorkOrderController extends Controller
         return Inertia::render('Manufacturing/WorkOrders/Index', [
             'workOrders' => $query->latest()->paginate(15)->withQueryString(),
             'statuses' => WorkOrder::STATUS_LABELS,
+            'manufacturingOrders' => ManufacturingOrder::query()->orderByDesc('created_at')->get(['id', 'code']),
             'filters' => $request->only(['filter']),
         ]);
     }

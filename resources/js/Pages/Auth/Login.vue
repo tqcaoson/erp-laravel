@@ -3,7 +3,7 @@
         <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
             <div class="mb-8 text-center">
                 <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white">E</span>
-                <h1 class="text-2xl font-bold text-slate-900">ERP An Phát</h1>
+                <h1 class="text-2xl font-bold text-slate-900">ERP XT Mechanical</h1>
                 <p class="mt-1 text-sm text-slate-500">Đăng nhập để quản lý doanh nghiệp của bạn</p>
             </div>
 

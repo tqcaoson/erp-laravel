@@ -4,10 +4,10 @@ namespace App\Modules\Inventory\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Inventory\Models\StockMove;
+use App\Modules\Inventory\Models\StockMoveRequest as StockMoveRequestModel;
 use App\Modules\Inventory\Models\StockQuant;
 use App\Modules\Inventory\Requests\StockMoveRequest;
 use App\Modules\Inventory\Services\StockService;
-use DomainException;
 use Illuminate\Http\Request;
 
 /**
@@ -66,34 +66,29 @@ class StockApiController extends Controller
         return response()->json($query->paginate($this->perPage($request)));
     }
 
+    /**
+     * Tạo phiếu kho tay chờ duyệt (API).
+     * Tồn kho KHÔNG đổi ở bước này — chỉ khi duyệt phiếu
+     * (quyền inventory.stock.confirm) thì StockService mới ghi tồn.
+     */
     public function storeMove(StockMoveRequest $request)
     {
         $data = $request->validated();
 
-        try {
-            $sourceType = 'manual';
-            $sourceId = (int) auth()->id();
+        $stockMoveRequest = StockMoveRequestModel::create([
+            'type' => $data['type'],
+            'product_id' => $data['product_id'],
+            'warehouse_id' => $data['warehouse_id'],
+            'location_id' => $data['location_id'] ?? null,
+            'to_warehouse_id' => $data['to_warehouse_id'] ?? null,
+            'to_location_id' => $data['to_location_id'] ?? null,
+            'lot_id' => $data['lot_id'] ?? null,
+            'qty' => $data['qty'],
+            'unit_cost' => $data['unit_cost'] ?? null,
+            'status' => 'pending',
+            'requested_by' => auth()->id(),
+        ]);
 
-            $moveId = match ($data['type']) {
-                'receive' => $this->stockService->receive(
-                    $data['product_id'], $data['warehouse_id'], $data['location_id'] ?? null,
-                    (float) $data['qty'], (float) ($data['unit_cost'] ?? 0), $sourceType, $sourceId, $data['lot_id'] ?? null,
-                ),
-                'issue' => $this->stockService->issue(
-                    $data['product_id'], $data['warehouse_id'], $data['location_id'] ?? null,
-                    (float) $data['qty'], $sourceType, $sourceId, $data['lot_id'] ?? null,
-                ),
-                'transfer' => $this->stockService->transfer(
-                    $data['product_id'], $data['warehouse_id'], $data['to_warehouse_id'],
-                    $data['location_id'] ?? null, $data['to_location_id'] ?? null,
-                    (float) $data['qty'], $sourceType, $sourceId,
-                ),
-            };
-        } catch (DomainException $e) {
-            // Thiếu tồn / trạng thái không hợp lệ → 409 theo chuẩn API mục 9.1.
-            return response()->json(['message' => $e->getMessage()], 409);
-        }
-
-        return response()->json(StockMove::find($moveId), 201);
+        return response()->json($stockMoveRequest, 201);
     }
 }

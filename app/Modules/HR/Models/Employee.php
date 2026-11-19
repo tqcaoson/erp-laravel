@@ -65,11 +65,17 @@ class Employee extends BaseModel
         return $this->hasMany(Payslip::class);
     }
 
-    /** Số ngày phép còn lại trong năm cho trước (mặc định năm hiện tại). */
+    /**
+     * Số ngày phép còn lại trong năm cho trước (mặc định năm hiện tại).
+     * Chưa có bản ghi số dư nghĩa là chưa dùng ngày nào → còn đủ 12 ngày
+     * mặc định (khớp với LeaveService::balanceFor()).
+     */
     public function remainingLeaveDays(?int $year = null): float
     {
         $balance = $this->leaveBalances()->where('year', $year ?? (int) now()->format('Y'))->first();
 
-        return $balance ? (float) ($balance->total_days - $balance->used_days) : 0.0;
+        return $balance
+            ? (float) ($balance->total_days - $balance->used_days)
+            : (float) LeaveBalance::DEFAULT_ANNUAL_DAYS;
     }
 }

@@ -7,6 +7,7 @@ use App\Modules\Sales\Models\Customer;
 use App\Modules\Sales\Models\Opportunity;
 use App\Modules\Sales\Models\Quotation;
 use App\Modules\Sales\Requests\StoreQuotationRequest;
+use App\Modules\Sales\Requests\UpdateQuotationRequest;
 use App\Modules\Sales\Services\QuotationService;
 use App\Modules\Sales\Support\CatalogLookup;
 use DomainException;
@@ -49,6 +50,35 @@ class QuotationController extends Controller
         $quotation = $this->quotations->create($request->validated());
 
         return redirect()->route('sales.quotations.show', $quotation)->with('success', "Đã tạo báo giá {$quotation->code}.");
+    }
+
+    /** Form sửa báo giá — chỉ báo giá nháp mới sửa được. */
+    public function edit(Quotation $quotation)
+    {
+        if ($quotation->status !== 'draft') {
+            return redirect()->route('sales.quotations.show', $quotation)
+                ->with('error', 'Chỉ sửa được báo giá ở trạng thái nháp.');
+        }
+
+        $quotation->load('lines');
+
+        return Inertia::render('Sales/Quotations/Edit', [
+            'quotation' => $quotation,
+            'customers' => Customer::orderBy('name')->get(['id', 'name']),
+            'opportunities' => Opportunity::orderBy('name')->get(['id', 'name']),
+            'products' => $this->productList(),
+        ]);
+    }
+
+    public function update(UpdateQuotationRequest $request, Quotation $quotation)
+    {
+        try {
+            $quotation = $this->quotations->update($quotation, $request->validated());
+        } catch (DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('sales.quotations.show', $quotation)->with('success', "Đã cập nhật báo giá {$quotation->code}.");
     }
 
     public function show(Quotation $quotation)

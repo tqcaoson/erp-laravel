@@ -33,6 +33,10 @@
                 <option value="">Tất cả phòng ban</option>
                 <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
             </select>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input v-model="filterForm.trashed" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                Chỉ xem nhân viên đã xóa
+            </label>
             <button @click="applyFilters" class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">Lọc</button>
         </div>
 
@@ -51,14 +55,46 @@
             </template>
             <template #actions="{ row }">
                 <div class="flex justify-end gap-2">
-                    <Link :href="route('hr.employees.show', row.id)" class="font-medium text-blue-600 hover:underline">Xem</Link>
-                    <Link
-                        v-if="can('hr.employee.manage')"
-                        :href="route('hr.employees.edit', row.id)"
-                        class="font-medium text-slate-600 hover:underline"
-                    >
-                        Sửa
-                    </Link>
+                    <template v-if="trashed">
+                        <button
+                            v-if="can('hr.employee.manage')"
+                            @click="restore(row)"
+                            class="font-medium text-green-600 hover:underline"
+                        >
+                            Khôi phục
+                        </button>
+                    </template>
+                    <template v-else>
+                        <Link :href="route('hr.employees.show', row.id)" class="font-medium text-blue-600 hover:underline">Xem</Link>
+                        <Link
+                            v-if="can('hr.employee.manage')"
+                            :href="route('hr.employees.edit', row.id)"
+                            class="font-medium text-slate-600 hover:underline"
+                        >
+                            Sửa
+                        </Link>
+                        <button
+                            v-if="can('hr.employee.manage') && row.status !== 'resigned'"
+                            @click="deactivate(row)"
+                            class="font-medium text-amber-600 hover:underline"
+                        >
+                            Cho nghỉ việc
+                        </button>
+                        <button
+                            v-if="can('hr.employee.manage') && row.status === 'resigned'"
+                            @click="reactivate(row)"
+                            class="font-medium text-green-600 hover:underline"
+                        >
+                            Kích hoạt lại
+                        </button>
+                        <button
+                            v-if="can('hr.employee.manage')"
+                            @click="remove(row)"
+                            class="font-medium text-red-600 hover:underline"
+                        >
+                            Xóa
+                        </button>
+                    </template>
                 </div>
             </template>
         </DataTable>
@@ -77,6 +113,7 @@ const props = defineProps({
     employees: { type: Object, required: true },
     departments: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
+    trashed: { type: Boolean, default: false },
 });
 
 const { money } = useFormat();
@@ -98,10 +135,35 @@ const filterForm = reactive({
         status: props.filters.filter?.status ?? '',
         department_id: props.filters.filter?.department_id ?? '',
     },
+    trashed: props.trashed,
 });
 
 function applyFilters() {
     router.get(route('hr.employees.index'), filterForm, { preserveState: true, preserveScroll: true });
+}
+
+function remove(row) {
+    if (confirm(`Xóa nhân viên ${row.full_name} (${row.code})? Hồ sơ sẽ chuyển vào mục đã xóa và có thể khôi phục lại.`)) {
+        router.delete(route('hr.employees.destroy', row.id), { preserveScroll: true });
+    }
+}
+
+function deactivate(row) {
+    if (confirm(`Cho nhân viên ${row.full_name} (${row.code}) nghỉ việc? Hồ sơ vẫn được giữ lại.`)) {
+        router.post(route('hr.employees.deactivate', row.id), {}, { preserveScroll: true });
+    }
+}
+
+function reactivate(row) {
+    if (confirm(`Kích hoạt lại nhân viên ${row.full_name} (${row.code})?`)) {
+        router.post(route('hr.employees.reactivate', row.id), {}, { preserveScroll: true });
+    }
+}
+
+function restore(row) {
+    if (confirm(`Khôi phục nhân viên ${row.full_name} (${row.code})?`)) {
+        router.post(route('hr.employees.restore', row.id), {}, { preserveScroll: true });
+    }
 }
 
 /** Map trạng thái nhân viên sang badge có sẵn (on_leave/resigned chưa có trong map). */

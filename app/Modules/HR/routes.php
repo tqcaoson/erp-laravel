@@ -6,6 +6,9 @@ use App\Modules\HR\Http\Controllers\EmployeeApiController;
 use App\Modules\HR\Http\Controllers\EmployeeController;
 use App\Modules\HR\Http\Controllers\LeaveRequestApiController;
 use App\Modules\HR\Http\Controllers\LeaveRequestController;
+use App\Modules\HR\Http\Controllers\MyAttendanceController;
+use App\Modules\HR\Http\Controllers\MyLeaveController;
+use App\Modules\HR\Http\Controllers\MyPayslipController;
 use App\Modules\HR\Http\Controllers\PayrollRunApiController;
 use App\Modules\HR\Http\Controllers\PayrollRunController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +23,9 @@ Route::middleware(['web', 'auth'])->prefix('hr')->name('hr.')->group(function ()
         Route::get('/employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
         Route::put('/employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
         Route::delete('/employees/{employee}', [EmployeeController::class, 'destroy'])->name('employees.destroy');
+        Route::post('/employees/{employee}/deactivate', [EmployeeController::class, 'deactivate'])->name('employees.deactivate');
+        Route::post('/employees/{employee}/reactivate', [EmployeeController::class, 'reactivate'])->name('employees.reactivate');
+        Route::post('/employees/{employee}/restore', [EmployeeController::class, 'restore'])->name('employees.restore');
         Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
         Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
     });
@@ -58,6 +64,24 @@ Route::middleware(['web', 'auth'])->prefix('hr')->name('hr.')->group(function ()
     });
     Route::middleware('permission:hr.payroll.approve')->group(function () {
         Route::post('/payroll-runs/{payrollRun}/lock', [PayrollRunController::class, 'lock'])->name('payroll-runs.lock');
+    });
+});
+
+// Nhân viên tự phục vụ — chỉ dữ liệu của chính mình (quyền hr.*.self).
+Route::middleware(['web', 'auth'])->prefix('my')->name('my.')->group(function () {
+    Route::middleware('permission:hr.attendance.self')->group(function () {
+        Route::get('/attendance', [MyAttendanceController::class, 'index'])->name('attendance.index');
+        Route::post('/attendance', [MyAttendanceController::class, 'store'])->name('attendance.store');
+    });
+    Route::middleware('permission:hr.leave.self')->group(function () {
+        Route::get('/leave-requests', [MyLeaveController::class, 'index'])->name('leave-requests.index');
+        Route::get('/leave-requests/create', [MyLeaveController::class, 'create'])->name('leave-requests.create');
+        Route::post('/leave-requests', [MyLeaveController::class, 'store'])->name('leave-requests.store');
+        Route::get('/leave-requests/{id}', [MyLeaveController::class, 'show'])->name('leave-requests.show');
+    });
+    Route::middleware('permission:hr.payslip.self')->group(function () {
+        Route::get('/payslips', [MyPayslipController::class, 'index'])->name('payslips.index');
+        Route::get('/payslips/{id}', [MyPayslipController::class, 'show'])->name('payslips.show');
     });
 });
 

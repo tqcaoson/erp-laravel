@@ -7,6 +7,10 @@
                 <option value="">Tất cả trạng thái</option>
                 <option v-for="(label, value) in statuses" :key="value" :value="value">{{ label }}</option>
             </select>
+            <select v-model="form.manufacturing_order_id" class="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none">
+                <option value="">Tất cả lệnh sản xuất</option>
+                <option v-for="o in manufacturingOrders" :key="o.id" :value="o.id">{{ o.code }}</option>
+            </select>
             <button type="submit" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
                 Lọc
             </button>
@@ -43,12 +47,16 @@ import { useFormat } from '../../../composables/useFormat';
 const props = defineProps({
     workOrders: { type: Object, required: true },
     statuses: { type: Object, required: true },
+    manufacturingOrders: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
 });
 
 const { number } = useFormat();
 
-const form = reactive({ status: props.filters.filter?.status ?? '' });
+const form = reactive({
+    status: props.filters.filter?.status ?? '',
+    manufacturing_order_id: props.filters.filter?.manufacturing_order_id ?? '',
+});
 
 const columns = [
     { key: 'code', label: 'Mã', sortable: true },
@@ -61,7 +69,10 @@ const columns = [
 ];
 
 function applyFilters() {
-    router.get(route('manufacturing.work-orders.index'), { 'filter[status]': form.status || undefined }, { preserveState: true });
+    router.get(route('manufacturing.work-orders.index'), {
+        'filter[status]': form.status || undefined,
+        'filter[manufacturing_order_id]': form.manufacturing_order_id || undefined,
+    }, { preserveState: true });
 }
 
 function changeStatus(workOrder, status) {

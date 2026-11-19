@@ -5,7 +5,7 @@
             <div class="flex h-16 items-center gap-2 border-b border-slate-800 px-5">
                 <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-lg font-bold text-white">E</span>
                 <div>
-                    <p class="text-base font-bold leading-tight text-white">ERP An Phát</p>
+                    <p class="text-base font-bold leading-tight text-white">ERP XT Mechanical</p>
                     <p class="text-xs text-slate-400">Quản trị doanh nghiệp</p>
                 </div>
             </div>
@@ -59,7 +59,7 @@
                     <input
                         v-model="search"
                         type="text"
-                        placeholder="Tìm kiếm nhanh (Ctrl+K)…"
+                        placeholder="Tìm menu (Ctrl+K)…"
                         class="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-12 text-sm focus:border-blue-500 focus:outline-none"
                         @keydown.enter="goSearch"
                     />
@@ -78,6 +78,12 @@
                         >
                             {{ r.icon }} {{ r.label }}
                         </Link>
+                    </div>
+                    <div
+                        v-if="search && !searchResults.length"
+                        class="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-400 shadow-lg"
+                    >
+                        Không tìm thấy mục menu nào
                     </div>
                 </div>
 
@@ -135,6 +141,7 @@ const search = ref('');
 const mobileNav = ref(false);
 
 // Mỗi mục menu gắn với 1 quyền xem; user chỉ thấy mục nào mình có quyền.
+// Backend đã gửi sẵn danh sách quyền qua page.props.auth.user.permissions.
 function can(permission) {
     if (!permission) return true;
     return user.value?.permissions?.includes(permission) ?? false;
@@ -150,11 +157,41 @@ const allNavGroups = [
         items: [
             { label: 'Kế toán', icon: '💰', href: '/accounting/journal-entries', permission: 'accounting.entry.view' },
             { label: 'Mua hàng', icon: '🛒', href: '/procurement/purchase-orders', permission: 'procurement.po.view' },
-            { label: 'Kho', icon: '📦', href: '/inventory/stock', permission: 'inventory.stock.view' },
             { label: 'Bán hàng', icon: '🤝', href: '/sales/orders', permission: 'sales.order.view' },
-            { label: 'Sản xuất', icon: '🏭', href: '/manufacturing/orders', permission: 'manufacturing.mo.view' },
             { label: 'Nhân sự', icon: '👥', href: '/hr/employees', permission: 'hr.employee.view' },
+            { label: 'Bảng lương', icon: '💵', href: '/hr/payroll-runs', permission: 'hr.payroll.view' },
             { label: 'Báo cáo', icon: '📊', href: '/reports', permission: 'reporting.report.view' },
+        ],
+    },
+    {
+        label: 'Kho',
+        items: [
+            { label: 'Tồn kho', icon: '📦', href: '/inventory/stock', permission: 'inventory.stock.view' },
+            { label: 'Phiếu kho chờ duyệt', icon: '✅', href: '/inventory/stock-requests', permission: 'inventory.stock.confirm' },
+        ],
+    },
+    {
+        label: 'Sản xuất',
+        items: [
+            { label: 'Lệnh sản xuất', icon: '🏭', href: '/manufacturing/orders', permission: 'manufacturing.mo.view' },
+            { label: 'Định mức BOM', icon: '📐', href: '/manufacturing/boms', permission: 'manufacturing.bom.view' },
+            { label: 'Trung tâm SX', icon: '🏗️', href: '/manufacturing/work-centers', permission: 'manufacturing.workcenter.view' },
+            { label: 'Công đoạn', icon: '⚙️', href: '/manufacturing/work-orders', permission: 'manufacturing.mo.view' },
+            { label: 'Quy trình SX', icon: '🔄', href: '/manufacturing/routings', permission: 'manufacturing.routing.view' },
+        ],
+    },
+    {
+        label: 'Cá nhân',
+        items: [
+            { label: 'Chấm công của tôi', icon: '🕐', href: '/my/attendance', permission: 'hr.attendance.self' },
+            { label: 'Nghỉ phép của tôi', icon: '🌴', href: '/my/leave-requests', permission: 'hr.leave.self' },
+            { label: 'Phiếu lương của tôi', icon: '🧾', href: '/my/payslips', permission: 'hr.payslip.self' },
+        ],
+    },
+    {
+        label: 'Quản trị',
+        items: [
+            { label: 'Người dùng', icon: '👤', href: '/admin/users', permission: 'core.user.view' },
         ],
     },
     {
@@ -202,7 +239,7 @@ function goSearch() {
 function onKeydown(event) {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
-        document.querySelector('input[placeholder*="Tìm kiếm"]')?.focus();
+        document.querySelector('input[placeholder*="Tìm menu"]')?.focus();
     }
 }
 

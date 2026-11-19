@@ -88,8 +88,11 @@ class JournalEntryController
             return back()->withErrors(['status' => $e->getMessage()]);
         }
 
+        // Về lại bút toán GỐC (giờ đã ở trạng thái reversed, có link tới
+        // bút toán đảo) thay vì sang trang bút toán đảo — tránh nhầm lẫn
+        // là vẫn đang ở bút toán gốc và bấm đảo tiếp.
         return redirect()
-            ->route('accounting.journal-entries.show', $reversal)
+            ->route('accounting.journal-entries.show', $journalEntry)
             ->with('success', "Đã đảo bút toán {$journalEntry->code} thành {$reversal->code}.");
     }
 }

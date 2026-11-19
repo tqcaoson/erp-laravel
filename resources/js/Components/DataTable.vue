@@ -86,6 +86,9 @@ const sortDir = computed(() => (sortParam.value.startsWith('-') ? 'desc' : 'asc'
 
 function toggleSort(key) {
     const next = sortKey.value === key && sortDir.value === 'asc' ? `-${key}` : key;
-    router.get(window.location.pathname, { sort: next }, { preserveState: true, preserveScroll: true });
+    // Giữ nguyên bộ lọc trên URL, chỉ đổi tham số sort.
+    const params = new URLSearchParams(window.location.search);
+    params.set('sort', next);
+    router.get(`${window.location.pathname}?${params.toString()}`, {}, { preserveState: true, preserveScroll: true });
 }
 </script>

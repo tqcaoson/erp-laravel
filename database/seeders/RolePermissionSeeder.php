@@ -42,6 +42,7 @@ class RolePermissionSeeder extends Seeder
             'procurement.po.approve' => 'Duyệt đơn mua hàng',
             'procurement.gr.view' => 'Xem phiếu nhận hàng',
             'procurement.gr.create' => 'Tạo phiếu nhận hàng',
+            'procurement.gr.validate' => 'Xác nhận phiếu nhận hàng',
             'procurement.rfq.view' => 'Xem báo giá nhà cung cấp',
             'procurement.rfq.manage' => 'Quản lý báo giá nhà cung cấp',
         ],
@@ -53,6 +54,7 @@ class RolePermissionSeeder extends Seeder
             'inventory.stock.view' => 'Xem tồn kho',
             'inventory.stock.move' => 'Nhập/xuất/chuyển kho',
             'inventory.stock.count' => 'Kiểm kê kho',
+            'inventory.stock.confirm' => 'Duyệt phiếu kho',
         ],
         'sales' => [
             'sales.customer.view' => 'Xem khách hàng',
@@ -81,18 +83,23 @@ class RolePermissionSeeder extends Seeder
             'manufacturing.mo.complete' => 'Hoàn thành sản xuất',
             'manufacturing.workcenter.view' => 'Xem trung tâm sản xuất',
             'manufacturing.workcenter.manage' => 'Quản lý trung tâm sản xuất',
+            'manufacturing.routing.view' => 'Xem quy trình sản xuất',
+            'manufacturing.routing.manage' => 'Quản lý quy trình sản xuất',
         ],
         'hr' => [
             'hr.employee.view' => 'Xem nhân viên',
             'hr.employee.manage' => 'Quản lý nhân viên',
             'hr.attendance.view' => 'Xem chấm công',
             'hr.attendance.manage' => 'Quản lý chấm công',
+            'hr.attendance.self' => 'Xem chấm công của mình',
             'hr.leave.view' => 'Xem nghỉ phép',
             'hr.leave.request' => 'Đăng ký nghỉ phép',
             'hr.leave.approve' => 'Duyệt nghỉ phép',
+            'hr.leave.self' => 'Xem và đăng ký nghỉ phép của mình',
             'hr.payroll.view' => 'Xem bảng lương',
             'hr.payroll.run' => 'Chạy bảng lương',
             'hr.payroll.approve' => 'Khóa bảng lương',
+            'hr.payslip.self' => 'Xem phiếu lương của mình',
         ],
         'reporting' => [
             'reporting.dashboard.view' => 'Xem dashboard',
@@ -110,11 +117,15 @@ class RolePermissionSeeder extends Seeder
     /** @var array<string, list<string>> role => các module hoặc quyền được gán ('*' = tất cả). */
     public const ROLE_PERMISSIONS = [
         'admin' => ['*'],
-        'giam_doc' => ['*.view', 'sales.order.approve', 'procurement.po.approve', 'procurement.pr.approve', 'hr.leave.approve', 'hr.payroll.approve', 'reporting.*'],
-        'ke_toan' => ['accounting.*', 'reporting.*', 'sales.order.view', 'sales.customer.view', 'procurement.po.view', 'procurement.supplier.view'],
-        'kho' => ['inventory.*', 'procurement.po.view', 'procurement.gr.view', 'procurement.gr.create', 'sales.delivery.view', 'sales.delivery.validate', 'reporting.dashboard.view'],
+        'giam_doc' => ['*.view', 'sales.order.approve', 'procurement.po.approve', 'procurement.pr.approve', 'procurement.gr.validate', 'inventory.stock.confirm', 'hr.leave.approve', 'hr.payroll.approve', 'reporting.*'],
+        'ke_toan' => ['accounting.*', 'reporting.*', 'sales.order.view', 'sales.customer.view', 'procurement.po.view', 'procurement.supplier.view', 'hr.payroll.view'],
+        // Kho KHÔNG dùng wildcard 'inventory.*': quyền 'inventory.stock.confirm'
+        // (duyệt phiếu kho) chỉ giao cho giám đốc để tách nhiệm vụ — thủ kho lập
+        // phiếu, giám đốc duyệt. Liệt kê tường minh 7 quyền kho còn lại.
+        'kho' => ['inventory.product.view', 'inventory.product.manage', 'inventory.warehouse.view', 'inventory.warehouse.manage', 'inventory.stock.view', 'inventory.stock.move', 'inventory.stock.count', 'procurement.po.view', 'procurement.supplier.view', 'procurement.gr.view', 'procurement.gr.create', 'sales.delivery.view', 'sales.delivery.validate', 'reporting.dashboard.view'],
         'ban_hang' => ['sales.*', 'inventory.product.view', 'inventory.stock.view', 'reporting.*'],
         'nhan_su' => ['hr.*', 'reporting.dashboard.view', 'reporting.report.view'],
+        'nhan_vien' => ['hr.attendance.self', 'hr.leave.self', 'hr.payslip.self', 'reporting.dashboard.view'],
     ];
 
     public const ROLES = [
@@ -124,6 +135,7 @@ class RolePermissionSeeder extends Seeder
         'kho' => 'Thủ kho',
         'ban_hang' => 'Nhân viên bán hàng',
         'nhan_su' => 'Nhân sự',
+        'nhan_vien' => 'Nhân viên',
     ];
 
     public function run(): void

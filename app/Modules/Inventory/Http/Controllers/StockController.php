@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Modules\Inventory\Models\Location;
 use App\Modules\Inventory\Models\Product;
 use App\Modules\Inventory\Models\StockMove;
+use App\Modules\Inventory\Models\StockMoveRequest as StockMoveRequestModel;
 use App\Modules\Inventory\Models\StockQuant;
 use App\Modules\Inventory\Models\Warehouse;
 use App\Modules\Inventory\Requests\StockMoveRequest;
 use App\Modules\Inventory\Services\StockService;
-use DomainException;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -72,37 +72,30 @@ class StockController extends Controller
         ]);
     }
 
-    /** Ghi phiếu nhập/xuất/chuyển kho qua StockService. */
+    /**
+     * Tạo phiếu nhập/xuất/chuyển kho chờ duyệt.
+     * Tồn kho KHÔNG đổi ở bước này — chỉ khi người có quyền duyệt
+     * (inventory.stock.confirm) duyệt phiếu thì StockService mới ghi tồn.
+     */
     public function move(StockMoveRequest $request)
     {
         $data = $request->validated();
 
-        try {
-            // Phiếu nhập/xuất tay: nguồn là thao tác thủ công của người dùng
-            // hiện tại (source_type 'manual', source_id = id người dùng).
-            $sourceType = 'manual';
-            $sourceId = (int) auth()->id();
+        StockMoveRequestModel::create([
+            'type' => $data['type'],
+            'product_id' => $data['product_id'],
+            'warehouse_id' => $data['warehouse_id'],
+            'location_id' => $data['location_id'] ?? null,
+            'to_warehouse_id' => $data['to_warehouse_id'] ?? null,
+            'to_location_id' => $data['to_location_id'] ?? null,
+            'lot_id' => $data['lot_id'] ?? null,
+            'qty' => $data['qty'],
+            'unit_cost' => $data['unit_cost'] ?? null,
+            'status' => 'pending',
+            'requested_by' => auth()->id(),
+        ]);
 
-            match ($data['type']) {
-                'receive' => $this->stockService->receive(
-                    $data['product_id'], $data['warehouse_id'], $data['location_id'] ?? null,
-                    (float) $data['qty'], (float) ($data['unit_cost'] ?? 0), $sourceType, $sourceId, $data['lot_id'] ?? null,
-                ),
-                'issue' => $this->stockService->issue(
-                    $data['product_id'], $data['warehouse_id'], $data['location_id'] ?? null,
-                    (float) $data['qty'], $sourceType, $sourceId, $data['lot_id'] ?? null,
-                ),
-                'transfer' => $this->stockService->transfer(
-                    $data['product_id'], $data['warehouse_id'], $data['to_warehouse_id'],
-                    $data['location_id'] ?? null, $data['to_location_id'] ?? null,
-                    (float) $data['qty'], $sourceType, $sourceId,
-                ),
-            };
-        } catch (DomainException $e) {
-            return redirect()->back()->with('error', $e->getMessage())->withInput();
-        }
-
-        return redirect()->route('inventory.stock.index')->with('success', 'Đã ghi phiếu kho.');
+        return redirect()->route('inventory.stock.index')->with('success', 'Đã gửi phiếu chờ duyệt.');
     }
 
     /** Sổ kho (lịch sử nhập/xuất). */

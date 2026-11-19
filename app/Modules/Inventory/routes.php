@@ -4,6 +4,7 @@ use App\Modules\Inventory\Http\Controllers\ProductApiController;
 use App\Modules\Inventory\Http\Controllers\ProductController;
 use App\Modules\Inventory\Http\Controllers\StockApiController;
 use App\Modules\Inventory\Http\Controllers\StockController;
+use App\Modules\Inventory\Http\Controllers\StockMoveRequestController;
 use App\Modules\Inventory\Http\Controllers\StockCountController;
 use App\Modules\Inventory\Http\Controllers\WarehouseController;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,11 @@ Route::middleware(['web', 'auth'])->prefix('inventory')->name('inventory.')->gro
     Route::get('/stock/move', [StockController::class, 'moveForm'])->middleware('permission:inventory.stock.move')->name('stock.move-form');
     Route::post('/stock/move', [StockController::class, 'move'])->middleware('permission:inventory.stock.move')->name('stock.move');
     Route::get('/stock-moves', [StockController::class, 'moves'])->middleware('permission:inventory.stock.view')->name('stock.moves');
+
+    // Duyệt phiếu kho tay (phiếu tạo tay chỉ ghi tồn sau khi duyệt).
+    Route::get('/stock-requests', [StockMoveRequestController::class, 'index'])->middleware('permission:inventory.stock.confirm')->name('stock-requests.index');
+    Route::post('/stock-requests/{stockMoveRequest}/approve', [StockMoveRequestController::class, 'approve'])->middleware('permission:inventory.stock.confirm')->name('stock-requests.approve');
+    Route::post('/stock-requests/{stockMoveRequest}/reject', [StockMoveRequestController::class, 'reject'])->middleware('permission:inventory.stock.confirm')->name('stock-requests.reject');
 
     // Kiểm kê kho.
     Route::get('/stock-counts', [StockCountController::class, 'index'])->middleware('permission:inventory.stock.count')->name('stock-counts.index');

@@ -7,6 +7,7 @@ use App\Core\Contracts\StockServiceInterface;
 use App\Core\Services\DocumentNumberingService;
 use App\Modules\Inventory\Events\DeliveryOrderValidated;
 use App\Modules\Sales\Models\DeliveryOrder;
+use App\Modules\Sales\Models\DeliveryOrderLine;
 use App\Modules\Sales\Models\SalesOrder;
 use DomainException;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,122 @@ class DeliveryOrderService implements DeliveryOrderCreatorInterface
         });
 
         return $deliveryOrder->id;
+    }
+
+    /**
+     * Tạo phiếu giao hàng nháp cho phần còn thiếu của đơn bán (giao nốt
+     * sau khi đã giao một phần, vd lần giao đầu thiếu tồn).
+     *
+     * Với mỗi dòng: phần thiếu = còn phải giao (remainingQty) TRỪ đi lượng
+     * đã nằm trong các phiếu giao NHÁP chưa xác nhận của cùng đơn (chống
+     * giao vượt), rồi lấy min với tồn khả dụng tại kho — cùng logic với
+     * listener tạo phiếu giao lúc xác nhận đơn.
+     *
+     * @return array{order: DeliveryOrder, warnings: list<string>}
+     *
+     * @throws DomainException khi đơn chưa xác nhận, đã giao đủ, phần thiếu
+     *                         đã nằm hết trong phiếu nháp, hoặc hết tồn.
+     */
+    public function createForRemaining(SalesOrder $order): array
+    {
+        if (! in_array($order->status, ['confirmed', 'partially_delivered', 'delivered'], true)) {
+            throw new DomainException('Chỉ giao phần còn lại cho đơn bán đã xác nhận.');
+        }
+
+        $order->loadMissing('lines');
+
+        // Lượng đã nằm trong các phiếu giao nháp của đơn (theo từng dòng đơn).
+        $draftIds = DeliveryOrder::query()
+            ->where('sales_order_id', $order->id)
+            ->where('status', 'draft')
+            ->pluck('id');
+
+        $reservedByLine = $draftIds->isEmpty()
+            ? collect()
+            : DeliveryOrderLine::query()
+                ->whereIn('delivery_order_id', $draftIds)
+                ->selectRaw('sales_order_line_id, SUM(qty) as total')
+                ->groupBy('sales_order_line_id')
+                ->pluck('total', 'sales_order_line_id');
+
+        $stock = $this->stockService();
+        $warnings = [];
+
+        if (! $stock) {
+            $warnings[] = 'Chưa kết nối được kho hàng nên chưa kiểm tra tồn khả dụng.';
+        }
+
+        // Tồn khả dụng theo sản phẩm (trừ dần khi phân bổ cho từng dòng,
+        // để 2 dòng cùng sản phẩm không cùng tính trên một lượng tồn).
+        $availableByProduct = [];
+        $deliveryLines = [];
+        $hasRemaining = false;
+        $allCoveredByDraft = true;
+
+        foreach ($order->lines as $line) {
+            $remaining = $line->remainingQty();
+
+            if ($remaining <= 0) {
+                continue;
+            }
+
+            $hasRemaining = true;
+
+            $reserved = (float) ($reservedByLine[$line->id] ?? 0);
+            $uncovered = $remaining - $reserved;
+
+            // Phần thiếu đã nằm hết trong phiếu nháp thì không giao thêm.
+            if ($uncovered <= 0) {
+                continue;
+            }
+
+            $allCoveredByDraft = false;
+
+            if ($stock) {
+                $productId = (int) $line->product_id;
+
+                if (! array_key_exists($productId, $availableByProduct)) {
+                    $availableByProduct[$productId] = $stock->availableQty($productId, (int) $order->warehouse_id);
+                }
+
+                $deliverQty = min($availableByProduct[$productId], $uncovered);
+                $availableByProduct[$productId] -= $deliverQty;
+
+                if ($deliverQty < $uncovered) {
+                    $warnings[] = "Sản phẩm #{$productId} chỉ còn đủ tồn để giao {$deliverQty} trên {$uncovered} còn thiếu.";
+                }
+            } else {
+                $deliverQty = $uncovered;
+            }
+
+            if ($deliverQty > 0) {
+                $deliveryLines[] = [
+                    'sales_order_line_id' => $line->id,
+                    'product_id' => (int) $line->product_id,
+                    'qty' => $deliverQty,
+                    'warehouse_id' => (int) $order->warehouse_id,
+                ];
+            }
+        }
+
+        if ($deliveryLines === []) {
+            if (! $hasRemaining) {
+                throw new DomainException('Đơn bán đã giao đủ toàn bộ các dòng.');
+            }
+
+            if ($allCoveredByDraft) {
+                throw new DomainException('Phần còn thiếu đã nằm trong phiếu giao nháp chưa xác nhận — hãy xác nhận phiếu đó trước khi tạo phiếu mới.');
+            }
+
+            throw new DomainException('Không còn tồn khả dụng để giao phần còn lại của đơn bán.');
+        }
+
+        $deliveryOrderId = $this->createForSalesOrder($order->id, $deliveryLines);
+
+        return [
+            'order' => DeliveryOrder::with('lines')->findOrFail($deliveryOrderId),
+            'warnings' => $warnings,
+        ];
     }
 
     /**
