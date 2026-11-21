@@ -66,6 +66,18 @@ if [ "$1" = "php-fpm" ]; then
     # không áp dụng được trên một số hệ thống file host, chỉ thử best-effort.
     chown -R www-data:www-data bootstrap/cache || true
 
+    # Xóa cache package/service cũ nếu còn sót trên host rồi sinh lại manifest
+    # đúng với vendor hiện tại. File packages.php/services.php cũ (đóng gói
+    # kèm source từ máy dev) có thể liệt kê các provider chỉ có ở dev như
+    # Pail/Sail/Collision, trong khi image chạy thật cài composer --no-dev
+    # nên không có các class đó — Laravel đọc cache cũ sẽ lỗi
+    # "Class ...ServiceProvider not found" ngay khi boot, mọi lệnh artisan
+    # đều chết (đã gặp 21/11/2026: app/queue/scheduler restart liên tục).
+    # Xóa trước rồi mới chạy package:discover vì bản thân artisan cũng
+    # không boot được khi cache cũ còn đó.
+    rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+    php artisan package:discover --ansi || true
+
     echo "[entrypoint] Chạy migration..."
     php artisan migrate --force
 

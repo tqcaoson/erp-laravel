@@ -321,6 +321,7 @@ php artisan serve   # mở http://127.0.0.1:8000
 | Cổng 80 đã bận | Đặt `NGINX_PORT=8081` trong `.env` rồi `docker compose up -d`, mở http://localhost:8081 |
 | `app` lỗi kết nối MySQL lúc khởi động | `entrypoint.sh` đã đợi tối đa 60s; nếu vẫn lỗi, kiểm tra `docker compose logs mysql` và `docker compose ps` (mysql phải `healthy`) |
 | Trang trắng / lỗi 500 | `docker compose logs -f app` để xem lỗi; thường do `APP_KEY` trống — entrypoint tự sinh, nếu vẫn trống thì chạy `docker compose exec app php artisan key:generate --force` rồi `docker compose restart app` |
+| Lỗi `Class "Laravel\Pail\PailServiceProvider" not found` (hoặc Sail/Collision), app/queue/scheduler restart liên tục | File `bootstrap/cache/packages.php` cũ trên máy host liệt kê provider chỉ có ở dev. Xóa `bootstrap/cache/packages.php` + `bootstrap/cache/services.php` rồi `docker compose restart` (entrypoint sẽ tự sinh lại manifest đúng). Từ bản này trở đi, entrypoint tự xóa + sinh lại mỗi lần app khởi động nên lỗi không tái diễn |
 | Mở trang báo 403 Forbidden (nginx) | Kiểm tra `docker compose ps` — `app` phải ở trạng thái `healthy` (entrypoint cần ~1 phút lúc chạy lần đầu để migrate + seed). Xem `docker compose logs app` nếu app không healthy |
 | Lỗi quyền ghi `storage/` | `docker compose exec app chown -R www-data:www-data storage bootstrap/cache` |
 | Muốn làm sạch toàn bộ để chạy lại từ đầu | `docker compose down -v` rồi `docker compose up -d --build` (migration + seed chạy lại tự động) |
